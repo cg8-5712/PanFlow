@@ -20,6 +20,13 @@ type DatabaseConfig struct {
 	Name     string
 }
 
+type RedisConfig struct {
+	Host     string
+	Port     string
+	Password string
+	DB       int
+}
+
 type LogConfig struct {
 	Level string
 }
@@ -89,6 +96,7 @@ type HklistConfig struct {
 type Config struct {
 	Server   ServerConfig
 	Database DatabaseConfig
+	Redis    RedisConfig
 	Log      LogConfig
 	Hklist   HklistConfig
 }
@@ -106,6 +114,9 @@ func Load() (*Config, error) {
 	viper.SetDefault("database.host", "127.0.0.1")
 	viper.SetDefault("database.port", "3306")
 	viper.SetDefault("database.name", "panflow")
+	viper.SetDefault("redis.host", "127.0.0.1")
+	viper.SetDefault("redis.port", "6379")
+	viper.SetDefault("redis.db", 0)
 	viper.SetDefault("log.level", "info")
 	viper.SetDefault("hklist.name", "PanFlow")
 	viper.SetDefault("hklist.logo", "/favicon.ico")

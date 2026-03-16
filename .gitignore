@@ -1,5 +1,18 @@
 *.exe
+*.log
 
+# Config
+config.yaml
+
+# IDE
 .claude/
-
 .vscode/
+.idea/
+
+# Build
+/bin/
+/dist/
+
+# Temp
+*.tmp
+*.swp
