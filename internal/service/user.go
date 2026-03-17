@@ -9,8 +9,8 @@ import (
 )
 
 var (
-	ErrUserNotFound      = errors.New("user not found")
-	ErrUserDailyLimit    = errors.New("daily limit exceeded")
+	ErrUserNotFound        = errors.New("user not found")
+	ErrUserDailyLimit      = errors.New("daily limit exceeded")
 	ErrUserVipInsufficient = errors.New("vip balance insufficient")
 )
 

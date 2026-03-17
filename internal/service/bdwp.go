@@ -11,11 +11,11 @@ import (
 )
 
 const (
-	baiduPCSBase    = "https://pan.baidu.com"
-	baiduAPIBase    = "https://pan.baidu.com/api"
-	baiduDiskBase   = "https://pan.baidu.com/rest/2.0/xpan"
-	locateDownload  = "https://pan.baidu.com/api/locatedownload"
-	defaultTimeout  = 30 * time.Second
+	baiduPCSBase   = "https://pan.baidu.com"
+	baiduAPIBase   = "https://pan.baidu.com/api"
+	baiduDiskBase  = "https://pan.baidu.com/rest/2.0/xpan"
+	locateDownload = "https://pan.baidu.com/api/locatedownload"
+	defaultTimeout = 30 * time.Second
 )
 
 // bdwpClient is a thin HTTP client for Baidu Pan API calls

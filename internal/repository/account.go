@@ -65,8 +65,8 @@ func (r *AccountRepository) ListByProviderUser(userID uint) ([]model.Account, er
 
 func (r *AccountRepository) IncrementUsage(id uint, size int64) error {
 	return r.db.Model(&model.Account{}).Where("id = ?", id).Updates(map[string]any{
-		"used_count": gorm.Expr("used_count + 1"),
-		"used_size":  gorm.Expr("used_size + ?", size),
+		"used_count":  gorm.Expr("used_count + 1"),
+		"used_size":   gorm.Expr("used_size + ?", size),
 		"last_use_at": gorm.Expr("NOW()"),
 	}).Error
 }

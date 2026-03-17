@@ -74,7 +74,7 @@ type Account struct {
 type Token struct {
 	ID             uint           `gorm:"primaryKey"                   json:"id"`
 	Token          string         `gorm:"column:token;uniqueIndex"     json:"token"`
-	TokenType      string         `gorm:"column:token_type"            json:"token_type"` // normal | daily
+	TokenType      string         `gorm:"column:token_type"            json:"token_type"`                      // normal | daily
 	UserType       string         `gorm:"column:user_type;default:guest;index:idx_user_type" json:"user_type"` // guest | vip | svip | admin
 	ProviderUserID *uint          `gorm:"column:provider_user_id;index:idx_provider_user" json:"provider_user_id"`
 	Count          int64          `gorm:"column:count;default:0"       json:"count"`
@@ -150,17 +150,17 @@ type Proxy struct {
 
 // User represents a user account with different privilege levels
 type User struct {
-	ID               uint           `gorm:"primaryKey"                                json:"id"`
-	Username         string         `gorm:"column:username;uniqueIndex;not null"      json:"username"`
-	Email            string         `gorm:"column:email"                              json:"email"`
-	UserType         string         `gorm:"column:user_type;default:guest;index:idx_user_type" json:"user_type"` // guest | vip | svip | admin
-	VipBalance       int64          `gorm:"column:vip_balance;default:0"              json:"vip_balance"`
-	DailyUsedCount   int64          `gorm:"column:daily_used_count;default:0"         json:"daily_used_count"`
-	DailyLimit       int            `gorm:"column:daily_limit;default:5"              json:"daily_limit"`
-	BaiduAccountID   *uint          `gorm:"column:baidu_account_id"                   json:"baidu_account_id"`
-	CreatedAt        time.Time      `                                                  json:"created_at"`
-	UpdatedAt        time.Time      `                                                  json:"updated_at"`
-	DeletedAt        gorm.DeletedAt `gorm:"index"                                     json:"deleted_at"`
+	ID             uint           `gorm:"primaryKey"                                json:"id"`
+	Username       string         `gorm:"column:username;uniqueIndex;not null"      json:"username"`
+	Email          string         `gorm:"column:email"                              json:"email"`
+	UserType       string         `gorm:"column:user_type;default:guest;index:idx_user_type" json:"user_type"` // guest | vip | svip | admin
+	VipBalance     int64          `gorm:"column:vip_balance;default:0"              json:"vip_balance"`
+	DailyUsedCount int64          `gorm:"column:daily_used_count;default:0"         json:"daily_used_count"`
+	DailyLimit     int            `gorm:"column:daily_limit;default:5"              json:"daily_limit"`
+	BaiduAccountID *uint          `gorm:"column:baidu_account_id"                   json:"baidu_account_id"`
+	CreatedAt      time.Time      `                                                  json:"created_at"`
+	UpdatedAt      time.Time      `                                                  json:"updated_at"`
+	DeletedAt      gorm.DeletedAt `gorm:"index"                                     json:"deleted_at"`
 	// Preload associations
 	BaiduAccount *Account `gorm:"foreignKey:BaiduAccountID" json:"baidu_account,omitempty"`
 }
@@ -175,4 +175,3 @@ type Config struct {
 	CreatedAt   time.Time `                                     json:"created_at"`
 	UpdatedAt   time.Time `                                     json:"updated_at"`
 }
-

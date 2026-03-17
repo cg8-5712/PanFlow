@@ -33,18 +33,18 @@ type LogConfig struct {
 
 type HklistConfig struct {
 	// 通用
-	AdminPassword    string  `mapstructure:"admin_password"`
-	ParsePassword    string  `mapstructure:"parse_password"`
-	ShowAnnounce     bool    `mapstructure:"show_announce"`
-	Announce         string  `mapstructure:"announce"`
-	CustomScript     string  `mapstructure:"custom_script"`
-	CustomButton     string  `mapstructure:"custom_button"`
-	ShowHero         bool    `mapstructure:"show_hero"`
-	Name             string  `mapstructure:"name"`
-	Logo             string  `mapstructure:"logo"`
-	Debug            bool    `mapstructure:"debug"`
-	DisableCheckRand bool    `mapstructure:"disable_check_rand"`
-	SaveHistoriesDay int     `mapstructure:"save_histories_day"`
+	AdminPassword    string `mapstructure:"admin_password"`
+	ParsePassword    string `mapstructure:"parse_password"`
+	ShowAnnounce     bool   `mapstructure:"show_announce"`
+	Announce         string `mapstructure:"announce"`
+	CustomScript     string `mapstructure:"custom_script"`
+	CustomButton     string `mapstructure:"custom_button"`
+	ShowHero         bool   `mapstructure:"show_hero"`
+	Name             string `mapstructure:"name"`
+	Logo             string `mapstructure:"logo"`
+	Debug            bool   `mapstructure:"debug"`
+	DisableCheckRand bool   `mapstructure:"disable_check_rand"`
+	SaveHistoriesDay int    `mapstructure:"save_histories_day"`
 
 	// 解析
 	ParserServer       string `mapstructure:"parser_server"`

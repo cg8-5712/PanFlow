@@ -63,10 +63,10 @@ func (h *ParseHandler) GetVcode(c *gin.Context) {
 // POST /user/parse/get_download_links
 func (h *ParseHandler) GetDownloadLinks(c *gin.Context) {
 	var req struct {
-		Surl    string  `json:"surl" binding:"required"`
-		Pwd     string  `json:"pwd"`
-		FsIDs   []int64 `json:"fs_id" binding:"required,min=1"`
-		TokenStr string `json:"token"`
+		Surl     string  `json:"surl" binding:"required"`
+		Pwd      string  `json:"pwd"`
+		FsIDs    []int64 `json:"fs_id" binding:"required,min=1"`
+		TokenStr string  `json:"token"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		FailBadRequest(c, 40000, err.Error())
