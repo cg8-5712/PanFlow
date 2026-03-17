@@ -59,6 +59,7 @@ type Account struct {
 	Switch             bool           `gorm:"column:switch;default:true"      json:"switch"`
 	Reason             string         `gorm:"column:reason"                   json:"reason"`
 	Prov               *string        `gorm:"column:prov"                     json:"prov"`
+	ProviderUserID     *uint          `gorm:"column:provider_user_id;index:idx_provider_user" json:"provider_user_id"`
 	UsedCount          int64          `gorm:"column:used_count;default:0"     json:"used_count"`
 	UsedSize           int64          `gorm:"column:used_size;default:0"      json:"used_size"`
 	TotalSize          int64          `gorm:"column:total_size;default:0"     json:"total_size"`
@@ -71,22 +72,24 @@ type Account struct {
 
 // Token represents an access token with quota
 type Token struct {
-	ID            uint           `gorm:"primaryKey"                   json:"id"`
-	Token         string         `gorm:"column:token;uniqueIndex"     json:"token"`
-	TokenType     string         `gorm:"column:token_type"            json:"token_type"` // normal | daily
-	Count         int64          `gorm:"column:count;default:0"       json:"count"`
-	Size          int64          `gorm:"column:size;default:0"        json:"size"`
-	Day           int64          `gorm:"column:day;default:0"         json:"day"`
-	UsedCount     int64          `gorm:"column:used_count;default:0"  json:"used_count"`
-	UsedSize      int64          `gorm:"column:used_size;default:0"   json:"used_size"`
-	CanUseIPCount int64          `gorm:"column:can_use_ip_count"      json:"can_use_ip_count"`
-	IP            JSONSlice      `gorm:"column:ip;type:text"          json:"ip"`
-	Switch        bool           `gorm:"column:switch;default:true"   json:"switch"`
-	Reason        string         `gorm:"column:reason"                json:"reason"`
-	ExpiresAt     *time.Time     `gorm:"column:expires_at"            json:"expires_at"`
-	CreatedAt     time.Time      `                                     json:"created_at"`
-	UpdatedAt     time.Time      `                                     json:"updated_at"`
-	DeletedAt     gorm.DeletedAt `gorm:"index"                        json:"deleted_at"`
+	ID             uint           `gorm:"primaryKey"                   json:"id"`
+	Token          string         `gorm:"column:token;uniqueIndex"     json:"token"`
+	TokenType      string         `gorm:"column:token_type"            json:"token_type"` // normal | daily
+	UserType       string         `gorm:"column:user_type;default:guest;index:idx_user_type" json:"user_type"` // guest | vip | svip | admin
+	ProviderUserID *uint          `gorm:"column:provider_user_id;index:idx_provider_user" json:"provider_user_id"`
+	Count          int64          `gorm:"column:count;default:0"       json:"count"`
+	Size           int64          `gorm:"column:size;default:0"        json:"size"`
+	Day            int64          `gorm:"column:day;default:0"         json:"day"`
+	UsedCount      int64          `gorm:"column:used_count;default:0"  json:"used_count"`
+	UsedSize       int64          `gorm:"column:used_size;default:0"   json:"used_size"`
+	CanUseIPCount  int64          `gorm:"column:can_use_ip_count"      json:"can_use_ip_count"`
+	IP             JSONSlice      `gorm:"column:ip;type:text"          json:"ip"`
+	Switch         bool           `gorm:"column:switch;default:true"   json:"switch"`
+	Reason         string         `gorm:"column:reason"                json:"reason"`
+	ExpiresAt      *time.Time     `gorm:"column:expires_at"            json:"expires_at"`
+	CreatedAt      time.Time      `                                     json:"created_at"`
+	UpdatedAt      time.Time      `                                     json:"updated_at"`
+	DeletedAt      gorm.DeletedAt `gorm:"index"                        json:"deleted_at"`
 }
 
 // FileList caches Baidu Pan file metadata from share links
@@ -109,13 +112,15 @@ type Record struct {
 	FsID        uint      `gorm:"column:fs_id"         json:"fs_id"`
 	URLs        JSONSlice `gorm:"column:urls;type:text" json:"urls"`
 	UA          string    `gorm:"column:ua"            json:"ua"`
-	TokenID     uint      `gorm:"column:token_id"      json:"token_id"`
-	AccountID   uint      `gorm:"column:account_id"    json:"account_id"`
+	TokenID     uint      `gorm:"column:token_id;index:idx_token" json:"token_id"`
+	AccountID   uint      `gorm:"column:account_id;index:idx_account" json:"account_id"`
+	UserID      *uint     `gorm:"column:user_id;index:idx_user" json:"user_id"`
 	CreatedAt   time.Time `json:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at"`
 	// Preload associations
 	Token   *Token    `gorm:"foreignKey:TokenID"                   json:"token,omitempty"`
 	Account *Account  `gorm:"foreignKey:AccountID"                 json:"account,omitempty"`
+	User    *User     `gorm:"foreignKey:UserID"                    json:"user,omitempty"`
 	File    *FileList `gorm:"foreignKey:FsID;references:ID"        json:"file,omitempty"`
 }
 
@@ -142,3 +147,32 @@ type Proxy struct {
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 }
+
+// User represents a user account with different privilege levels
+type User struct {
+	ID               uint           `gorm:"primaryKey"                                json:"id"`
+	Username         string         `gorm:"column:username;uniqueIndex;not null"      json:"username"`
+	Email            string         `gorm:"column:email"                              json:"email"`
+	UserType         string         `gorm:"column:user_type;default:guest;index:idx_user_type" json:"user_type"` // guest | vip | svip | admin
+	VipBalance       int64          `gorm:"column:vip_balance;default:0"              json:"vip_balance"`
+	DailyUsedCount   int64          `gorm:"column:daily_used_count;default:0"         json:"daily_used_count"`
+	DailyLimit       int            `gorm:"column:daily_limit;default:5"              json:"daily_limit"`
+	BaiduAccountID   *uint          `gorm:"column:baidu_account_id"                   json:"baidu_account_id"`
+	CreatedAt        time.Time      `                                                  json:"created_at"`
+	UpdatedAt        time.Time      `                                                  json:"updated_at"`
+	DeletedAt        gorm.DeletedAt `gorm:"index"                                     json:"deleted_at"`
+	// Preload associations
+	BaiduAccount *Account `gorm:"foreignKey:BaiduAccountID" json:"baidu_account,omitempty"`
+}
+
+// Config represents a database-stored configuration entry
+type Config struct {
+	ID          uint      `gorm:"primaryKey"                   json:"id"`
+	Key         string    `gorm:"column:key;uniqueIndex;not null" json:"key"`
+	Value       string    `gorm:"column:value;type:text"       json:"value"`
+	Type        string    `gorm:"column:type;default:string"   json:"type"` // string | int | bool | json
+	Description string    `gorm:"column:description"           json:"description"`
+	CreatedAt   time.Time `                                     json:"created_at"`
+	UpdatedAt   time.Time `                                     json:"updated_at"`
+}
+
