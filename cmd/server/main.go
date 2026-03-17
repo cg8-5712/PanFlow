@@ -62,8 +62,6 @@ func main() {
 	blackListRepo := repository.NewBlackListRepository(db)
 	proxyRepo := repository.NewProxyRepository(db)
 
-	_ = fileListRepo
-
 	logger.Info("Repositories initialized")
 
 	// 7. 设置 Gin 模式
@@ -78,7 +76,7 @@ func main() {
 	})
 
 	// 10. 注册路由
-	router.Setup(r, cfg, accountRepo, tokenRepo, userRepo, configRepo, recordRepo, blackListRepo, proxyRepo)
+	router.Setup(r, cfg, accountRepo, tokenRepo, userRepo, configRepo, recordRepo, fileListRepo, blackListRepo, proxyRepo)
 
 	// 11. 启动服务器
 	addr := fmt.Sprintf("%s:%s", cfg.Server.Host, cfg.Server.Port)
