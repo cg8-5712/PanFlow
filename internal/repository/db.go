@@ -41,6 +41,10 @@ func NewDB(cfg config.DatabaseConfig) (*gorm.DB, error) {
 		return nil, fmt.Errorf("seed guest token failed: %w", err)
 	}
 
+	if err := seedDefaultConfigs(db); err != nil {
+		return nil, fmt.Errorf("seed default configs failed: %w", err)
+	}
+
 	return db, nil
 }
 
@@ -48,6 +52,8 @@ func autoMigrate(db *gorm.DB) error {
 	return db.AutoMigrate(
 		&model.Account{},
 		&model.Token{},
+		&model.User{},
+		&model.Config{},
 		&model.FileList{},
 		&model.Record{},
 		&model.BlackList{},
@@ -65,6 +71,7 @@ func seedGuestToken(db *gorm.DB) error {
 	guest := model.Token{
 		Token:         "guest",
 		TokenType:     "daily",
+		UserType:      "guest",
 		Count:         10,
 		Size:          10 * 1024 * 1024 * 1024, // 10 GB
 		Day:           1,
@@ -75,3 +82,26 @@ func seedGuestToken(db *gorm.DB) error {
 	}
 	return db.Create(&guest).Error
 }
+
+// seedDefaultConfigs ensures default configuration entries exist
+func seedDefaultConfigs(db *gorm.DB) error {
+	defaults := []model.Config{
+		{Key: "guest_daily_limit", Value: "5", Type: "int", Description: "普通用户每日次数"},
+		{Key: "vip_count_based", Value: "true", Type: "bool", Description: "VIP按次数计费"},
+		{Key: "svip_daily_limit", Value: "100", Type: "int", Description: "SVIP用户每日次数"},
+		{Key: "admin_unlimited", Value: "true", Type: "bool", Description: "Admin无限制"},
+	}
+
+	for _, cfg := range defaults {
+		var existing model.Config
+		err := db.Where("key = ?", cfg.Key).First(&existing).Error
+		if err == nil {
+			continue // already exists
+		}
+		if err := db.Create(&cfg).Error; err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
