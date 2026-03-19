@@ -135,19 +135,6 @@ type BlackList struct {
 	UpdatedAt  time.Time  `json:"updated_at"`
 }
 
-// Proxy stores per-account download proxy entries
-type Proxy struct {
-	ID        uint      `gorm:"primaryKey"        json:"id"`
-	Type      string    `gorm:"column:type"       json:"type"` // http | api | proxy
-	Proxy     string    `gorm:"column:proxy"      json:"proxy"`
-	Enable    bool      `gorm:"column:enable"     json:"enable"`
-	Reason    *string   `gorm:"column:reason"     json:"reason"`
-	AccountID uint      `gorm:"column:account_id" json:"account_id"`
-	Account   *Account  `gorm:"foreignKey:AccountID" json:"account,omitempty"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
-}
-
 // User represents a user account with different privilege levels
 type User struct {
 	ID             uint           `gorm:"primaryKey"                                json:"id"`

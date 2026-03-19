@@ -21,7 +21,6 @@ func Setup(
 	recordRepo *repository.RecordRepository,
 	fileListRepo *repository.FileListRepository,
 	blackListRepo *repository.BlackListRepository,
-	proxyRepo *repository.ProxyRepository,
 ) {
 	// Services
 	tokenSvc := service.NewTokenService(tokenRepo)
@@ -44,7 +43,6 @@ func Setup(
 	configH := handler.NewConfigHandler(configRepo)
 	recordH := handler.NewRecordHandler(recordRepo)
 	blackListH := handler.NewBlackListHandler(blackListRepo)
-	proxyH := handler.NewProxyHandler(proxyRepo)
 	parseH := handler.NewParseHandler(parseSvc, configSvc)
 	authH := handler.NewAuthHandler(jwtSvc, tokenSvc, cfg.Panflow.AdminPassword)
 
@@ -103,9 +101,5 @@ func Setup(
 		admin.GET("/record", recordH.List)
 		admin.GET("/record/history", recordH.History)
 
-		admin.GET("/proxy", proxyH.List)
-		admin.POST("/proxy", proxyH.Create)
-		admin.PATCH("/proxy", proxyH.Update)
-		admin.DELETE("/proxy", proxyH.Delete)
 	}
 }

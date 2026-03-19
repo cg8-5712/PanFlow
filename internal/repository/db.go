@@ -57,7 +57,6 @@ func autoMigrate(db *gorm.DB) error {
 		&model.FileList{},
 		&model.Record{},
 		&model.BlackList{},
-		&model.Proxy{},
 	)
 }
 
