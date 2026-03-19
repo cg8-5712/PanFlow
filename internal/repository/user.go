@@ -85,3 +85,14 @@ func (r *UserRepository) AddVipBalance(id uint, count int64) error {
 	return r.db.Model(&model.User{}).Where("id = ?", id).
 		UpdateColumn("vip_balance", gorm.Expr("vip_balance + ?", count)).Error
 }
+
+// UpdateEmail updates only the email field for a user
+func (r *UserRepository) UpdateEmail(id uint, email string) error {
+	return r.db.Model(&model.User{}).Where("id = ?", id).
+		Update("email", email).Error
+}
+
+// UpdateFields updates a selective set of fields for a user
+func (r *UserRepository) UpdateFields(id uint, fields map[string]any) error {
+	return r.db.Model(&model.User{}).Where("id = ?", id).Updates(fields).Error
+}

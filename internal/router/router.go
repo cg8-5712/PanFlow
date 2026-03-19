@@ -54,19 +54,25 @@ func Setup(
 	api.POST("/admin/login", authH.AdminLogin)
 	api.POST("/user/login", authH.UserLogin)
 
-	// ── User routes ───────────────────────────────────────────────────────────
-	user := api.Group("")
-	user.Use(middleware.IdentifierFilter(blackListRepo, cfg.Panflow.Debug))
+	// ── User routes（公开，仅 IdentifierFilter）────────────────────────────────
+	public := api.Group("")
+	public.Use(middleware.IdentifierFilter(blackListRepo, cfg.Panflow.Debug))
 	{
-		user.GET("/user/parse/config", parseH.GetConfig)
-		user.GET("/user/parse/limit", parseH.GetLimit)
-		user.POST("/user/parse/get_file_list", parseH.GetFileList)
-		user.POST("/user/parse/get_vcode", parseH.GetVcode)
-		user.POST("/user/parse/get_download_links", parseH.GetDownloadLinks)
-		user.GET("/user/token", func(c *gin.Context) {
-			handler.Success(c, nil)
-		})
-		user.GET("/user/history", recordH.UserHistory)
+		public.GET("/user/parse/config", parseH.GetConfig)
+		public.GET("/user/parse/limit", parseH.GetLimit)
+		public.POST("/user/parse/get_vcode", parseH.GetVcode)
+	}
+
+	// ── User routes（需登录，IdentifierFilter + UserJWTAuth）─────────────────
+	auth := api.Group("")
+	auth.Use(middleware.IdentifierFilter(blackListRepo, cfg.Panflow.Debug))
+	auth.Use(middleware.UserJWTAuth(jwtSvc, cfg.Panflow.Debug))
+	{
+		auth.POST("/user/parse/get_file_list", parseH.GetFileList)
+		auth.POST("/user/parse/get_download_links", parseH.GetDownloadLinks)
+		auth.GET("/user/history", recordH.UserHistory)
+		auth.GET("/user/profile", userH.GetProfile)
+		auth.PATCH("/user/profile", userH.UpdateProfile)
 	}
 
 	// ── Admin routes (JWT protected) ──────────────────────────────────────────
