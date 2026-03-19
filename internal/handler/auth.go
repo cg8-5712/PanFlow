@@ -3,19 +3,35 @@ package handler
 import (
 	"net/http"
 
+	"panflow/internal/repository"
 	"panflow/internal/service"
 
 	"github.com/gin-gonic/gin"
+	"golang.org/x/crypto/bcrypt"
 )
 
 type AuthHandler struct {
 	jwtSvc        *service.JWTService
 	tokenSvc      *service.TokenService
+	userRepo      *repository.UserRepository
+	tokenRepo     *repository.TokenRepository
 	adminPassword string
 }
 
-func NewAuthHandler(jwtSvc *service.JWTService, tokenSvc *service.TokenService, adminPassword string) *AuthHandler {
-	return &AuthHandler{jwtSvc: jwtSvc, tokenSvc: tokenSvc, adminPassword: adminPassword}
+func NewAuthHandler(
+	jwtSvc *service.JWTService,
+	tokenSvc *service.TokenService,
+	userRepo *repository.UserRepository,
+	tokenRepo *repository.TokenRepository,
+	adminPassword string,
+) *AuthHandler {
+	return &AuthHandler{
+		jwtSvc:        jwtSvc,
+		tokenSvc:      tokenSvc,
+		userRepo:      userRepo,
+		tokenRepo:     tokenRepo,
+		adminPassword: adminPassword,
+	}
 }
 
 // POST /admin/login
@@ -46,29 +62,45 @@ func (h *AuthHandler) AdminLogin(c *gin.Context) {
 }
 
 // POST /user/login
-// Accepts a token string (API key), validates it, and issues a user JWT.
-// Guests can login with token="guest".
+// 支持两种方式：
+//   - token 登录：{"token": "xxx"}
+//   - 账号密码登录：{"username": "xxx", "password": "xxx"}
 func (h *AuthHandler) UserLogin(c *gin.Context) {
 	var req struct {
-		Token string `json:"token" binding:"required"`
+		Token    string `json:"token"`
+		Username string `json:"username"`
+		Password string `json:"password"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		Fail(c, http.StatusBadRequest, 40000, "token required")
+		Fail(c, http.StatusBadRequest, 40000, "invalid request")
 		return
 	}
 
-	tok, err := h.tokenSvc.GetByToken(c.Request.Context(), req.Token)
+	// 账号密码登录
+	if req.Username != "" {
+		h.loginWithPassword(c, req.Username, req.Password)
+		return
+	}
+
+	// token 登录
+	if req.Token == "" {
+		Fail(c, http.StatusBadRequest, 40000, "token or username+password required")
+		return
+	}
+	h.loginWithToken(c, req.Token)
+}
+
+func (h *AuthHandler) loginWithToken(c *gin.Context, tokenStr string) {
+	tok, err := h.tokenSvc.GetByToken(c.Request.Context(), tokenStr)
 	if err != nil {
 		Fail(c, http.StatusUnauthorized, 20003, "token not found or invalid")
 		return
 	}
-
 	if !tok.Switch {
 		Fail(c, http.StatusForbidden, 20004, "token is disabled")
 		return
 	}
 
-	// provider_user_id links this token to a user account (used for svip)
 	jwtStr, exp, err := h.jwtSvc.IssueUser(tok.ID, tok.UserType, tok.ProviderUserID)
 	if err != nil {
 		FailInternal(c, "failed to issue token")
@@ -78,6 +110,44 @@ func (h *AuthHandler) UserLogin(c *gin.Context) {
 	Success(c, gin.H{
 		"token":      jwtStr,
 		"user_type":  tok.UserType,
+		"expires_at": exp.Format("2006-01-02 15:04:05"),
+	})
+}
+
+func (h *AuthHandler) loginWithPassword(c *gin.Context, username, password string) {
+	if password == "" {
+		Fail(c, http.StatusBadRequest, 40000, "password required")
+		return
+	}
+
+	user, err := h.userRepo.GetByUsername(username)
+	if err != nil || user.Password == "" {
+		Fail(c, http.StatusUnauthorized, 20005, "username or password error")
+		return
+	}
+
+	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password)); err != nil {
+		Fail(c, http.StatusUnauthorized, 20005, "username or password error")
+		return
+	}
+
+	// 找到该用户绑定的 token
+	tok, err := h.tokenRepo.GetByProviderUserID(user.ID)
+	if err != nil {
+		Fail(c, http.StatusUnauthorized, 20006, "no active token linked to this account")
+		return
+	}
+
+	uid := user.ID
+	jwtStr, exp, err := h.jwtSvc.IssueUser(tok.ID, user.UserType, &uid)
+	if err != nil {
+		FailInternal(c, "failed to issue token")
+		return
+	}
+
+	Success(c, gin.H{
+		"token":      jwtStr,
+		"user_type":  user.UserType,
 		"expires_at": exp.Format("2006-01-02 15:04:05"),
 	})
 }

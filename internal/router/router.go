@@ -44,7 +44,7 @@ func Setup(
 	recordH := handler.NewRecordHandler(recordRepo)
 	blackListH := handler.NewBlackListHandler(blackListRepo)
 	parseH := handler.NewParseHandler(parseSvc, configSvc)
-	authH := handler.NewAuthHandler(jwtSvc, tokenSvc, cfg.Panflow.AdminPassword)
+	authH := handler.NewAuthHandler(jwtSvc, tokenSvc, userRepo, tokenRepo, cfg.Panflow.AdminPassword)
 
 	r.Use(middleware.Cors())
 
@@ -73,6 +73,7 @@ func Setup(
 		auth.GET("/user/history", recordH.UserHistory)
 		auth.GET("/user/profile", userH.GetProfile)
 		auth.PATCH("/user/profile", userH.UpdateProfile)
+		auth.PATCH("/user/password", userH.ChangePassword)
 	}
 
 	// ── Admin routes (JWT protected) ──────────────────────────────────────────
@@ -94,6 +95,7 @@ func Setup(
 		admin.PATCH("/user", userH.Update)
 		admin.DELETE("/user", userH.Delete)
 		admin.POST("/user/recharge", userH.Recharge)
+		admin.POST("/user/reset_password", userH.ResetPassword)
 
 		admin.GET("/config", configH.List)
 		admin.PATCH("/config", configH.Update)

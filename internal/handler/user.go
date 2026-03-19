@@ -7,6 +7,7 @@ import (
 	"panflow/internal/repository"
 
 	"github.com/gin-gonic/gin"
+	"golang.org/x/crypto/bcrypt"
 )
 
 type UserHandler struct {
@@ -50,6 +51,50 @@ func (h *UserHandler) GetProfile(c *gin.Context) {
 		"daily_limit":      user.DailyLimit,
 		"daily_remaining":  remaining,
 	})
+}
+
+// PATCH /user/password
+func (h *UserHandler) ChangePassword(c *gin.Context) {
+	uid, ok := c.Get("jwt_user_id")
+	if !ok {
+		FailForbidden(c, 40301, "no user account linked")
+		return
+	}
+
+	var req struct {
+		OldPassword string `json:"old_password" binding:"required"`
+		NewPassword string `json:"new_password" binding:"required,min=8"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		FailBadRequest(c, 40000, err.Error())
+		return
+	}
+
+	user, err := h.repo.GetByID(uid.(uint))
+	if err != nil {
+		FailNotFound(c, 40400, "user not found")
+		return
+	}
+
+	if user.Password == "" {
+		FailForbidden(c, 40302, "account has no password set, contact admin")
+		return
+	}
+	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.OldPassword)); err != nil {
+		Fail(c, http.StatusUnauthorized, 20005, "old password incorrect")
+		return
+	}
+
+	hashed, err := bcrypt.GenerateFromPassword([]byte(req.NewPassword), bcrypt.DefaultCost)
+	if err != nil {
+		FailInternal(c, "failed to hash password")
+		return
+	}
+	if err := h.repo.UpdatePassword(uid.(uint), string(hashed)); err != nil {
+		FailInternal(c, err.Error())
+		return
+	}
+	SuccessMsg(c, "password updated")
 }
 
 // PATCH /user/profile
@@ -180,6 +225,29 @@ func (h *UserHandler) Delete(c *gin.Context) {
 		return
 	}
 	c.Status(http.StatusNoContent)
+}
+
+// POST /admin/user/reset_password
+func (h *UserHandler) ResetPassword(c *gin.Context) {
+	var req struct {
+		ID          uint   `json:"id" binding:"required"`
+		NewPassword string `json:"new_password" binding:"required,min=8"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		FailBadRequest(c, 40000, err.Error())
+		return
+	}
+
+	hashed, err := bcrypt.GenerateFromPassword([]byte(req.NewPassword), bcrypt.DefaultCost)
+	if err != nil {
+		FailInternal(c, "failed to hash password")
+		return
+	}
+	if err := h.repo.UpdatePassword(req.ID, string(hashed)); err != nil {
+		FailInternal(c, err.Error())
+		return
+	}
+	SuccessMsg(c, "password reset")
 }
 
 // POST /admin/user/recharge

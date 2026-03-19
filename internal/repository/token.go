@@ -54,6 +54,16 @@ func (r *TokenRepository) List(offset, limit int) ([]model.Token, int64, error) 
 	return tokens, total, err
 }
 
+// GetByProviderUserID returns the first active token linked to a user
+func (r *TokenRepository) GetByProviderUserID(userID uint) (*model.Token, error) {
+	var token model.Token
+	err := r.db.Where("provider_user_id = ? AND `switch` = 1", userID).First(&token).Error
+	if err != nil {
+		return nil, err
+	}
+	return &token, nil
+}
+
 func (r *TokenRepository) IncrementUsage(id uint, size int64) error {
 	return r.db.Model(&model.Token{}).Where("id = ?", id).Updates(map[string]any{
 		"used_count": gorm.Expr("used_count + 1"),

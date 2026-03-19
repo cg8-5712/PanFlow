@@ -139,6 +139,7 @@ type BlackList struct {
 type User struct {
 	ID             uint           `gorm:"primaryKey"                                json:"id"`
 	Username       string         `gorm:"column:username;uniqueIndex;not null"      json:"username"`
+	Password       string         `gorm:"column:password"                           json:"-"`
 	Email          string         `gorm:"column:email"                              json:"email"`
 	UserType       string         `gorm:"column:user_type;default:guest;index:idx_user_type" json:"user_type"` // guest | vip | svip | admin
 	VipBalance     int64          `gorm:"column:vip_balance;default:0"              json:"vip_balance"`

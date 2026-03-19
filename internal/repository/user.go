@@ -86,6 +86,12 @@ func (r *UserRepository) AddVipBalance(id uint, count int64) error {
 		UpdateColumn("vip_balance", gorm.Expr("vip_balance + ?", count)).Error
 }
 
+// UpdatePassword updates only the hashed password for a user
+func (r *UserRepository) UpdatePassword(id uint, hashed string) error {
+	return r.db.Model(&model.User{}).Where("id = ?", id).
+		Update("password", hashed).Error
+}
+
 // UpdateEmail updates only the email field for a user
 func (r *UserRepository) UpdateEmail(id uint, email string) error {
 	return r.db.Model(&model.User{}).Where("id = ?", id).
