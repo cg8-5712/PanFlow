@@ -32,29 +32,12 @@ type LogConfig struct {
 }
 
 type PanflowConfig struct {
-	AdminPassword    string `mapstructure:"admin_password"`
-	ParsePassword    string `mapstructure:"parse_password"`
-	JWTSecret        string `mapstructure:"jwt_secret"`
-	JWTExpireHours   int    `mapstructure:"jwt_expire_hours"`
-	Debug            bool   `mapstructure:"debug"`
-	SaveHistoriesDay int    `mapstructure:"save_histories_day"`
-
-	// 解析
+	AdminPassword  string `mapstructure:"admin_password"`
+	JWTSecret      string `mapstructure:"jwt_secret"`
+	JWTExpireHours int    `mapstructure:"jwt_expire_hours"`
+	Debug          bool   `mapstructure:"debug"`
 	GuestUserAgent string `mapstructure:"guest_user_agent"`
-
-	// 全局代理
-	ProxyHTTP string `mapstructure:"proxy_http"`
-
-	// 邮件
-	MailSwitch      bool   `mapstructure:"mail_switch"`
-	MailHost        string `mapstructure:"mail_host"`
-	MailPort        int    `mapstructure:"mail_port"`
-	MailUsername    string `mapstructure:"mail_username"`
-	MailPassword    string `mapstructure:"mail_password"`
-	MailFromAddress string `mapstructure:"mail_from_address"`
-	MailFromName    string `mapstructure:"mail_from_name"`
-	MailToAddress   string `mapstructure:"mail_to_address"`
-	MailToName      string `mapstructure:"mail_to_name"`
+	ProxyHTTP      string `mapstructure:"proxy_http"`
 }
 
 type Config struct {
@@ -84,7 +67,6 @@ func Load() (*Config, error) {
 	viper.SetDefault("log.level", "info")
 	viper.SetDefault("panflow.jwt_secret", "panflow-change-me")
 	viper.SetDefault("panflow.jwt_expire_hours", 24)
-	viper.SetDefault("panflow.save_histories_day", 7)
 	viper.SetDefault("panflow.guest_user_agent", "netdisk;P2SP;3.0.20.138")
 
 	viper.AutomaticEnv()
@@ -101,20 +83,5 @@ func Load() (*Config, error) {
 		return nil, err
 	}
 
-	// 保证 save_histories_day 最小为 7
-	if cfg.Panflow.SaveHistoriesDay < 7 {
-		cfg.Panflow.SaveHistoriesDay = 7
-	}
-
 	return &cfg, nil
-}
-
-// SaveConfig writes key/value pairs back to the .env-style config file.
-// PanFlow uses YAML config instead of .env; callers update the viper store
-// and then call this to persist.
-func UpdateAndSave(updates map[string]interface{}) error {
-	for k, v := range updates {
-		viper.Set(k, v)
-	}
-	return viper.WriteConfig()
 }

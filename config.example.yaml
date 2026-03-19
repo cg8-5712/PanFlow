@@ -21,25 +21,8 @@ log:
 
 panflow:
   admin_password: ""
-  parse_password: ""
   jwt_secret: "panflow-change-me"
   jwt_expire_hours: 24
   debug: false
-  save_histories_day: 7
-
-  # 解析
   guest_user_agent: "netdisk;P2SP;3.0.20.138"
-
-  # 全局代理（可选）
-  proxy_http: ""
-
-  # 邮件（可选）
-  mail_switch: false
-  mail_host: "smtp.example.com"
-  mail_port: 465
-  mail_username: ""
-  mail_password: ""
-  mail_from_address: ""
-  mail_from_name: "PanFlow"
-  mail_to_address: ""
-  mail_to_name: ""
+  proxy_http: "" # 可选，格式: http://host:port

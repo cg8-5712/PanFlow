@@ -4,7 +4,6 @@ import (
 	"net/http"
 	"strings"
 
-	"panflow/internal/config"
 	"panflow/internal/handler"
 	"panflow/internal/service"
 
@@ -75,33 +74,6 @@ func UserJWTAuth(jwtSvc *service.JWTService, debug bool) gin.HandlerFunc {
 		if claims.UserID != nil {
 			c.Set(CtxUserID, *claims.UserID)
 		}
-		c.Next()
-	}
-}
-
-// PassFilterUser validates the parse password from query or body
-func PassFilterUser(cfg *config.PanflowConfig) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		if cfg.ParsePassword == "" {
-			c.Next()
-			return
-		}
-
-		password := c.Query("parse_password")
-		if password == "" {
-			var body struct {
-				ParsePassword string `json:"parse_password" form:"parse_password"`
-			}
-			_ = c.ShouldBind(&body)
-			password = body.ParsePassword
-		}
-
-		if password != cfg.ParsePassword {
-			handler.Fail(c, http.StatusForbidden, 20002, "parse password error")
-			c.Abort()
-			return
-		}
-
 		c.Next()
 	}
 }

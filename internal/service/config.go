@@ -59,24 +59,3 @@ func (s *ConfigService) GetBool(ctx context.Context, key string, def bool) bool 
 	}
 	return b
 }
-
-// Set updates a config value and invalidates its cache entry
-func (s *ConfigService) Set(ctx context.Context, key, value, typ, description string) error {
-	if err := s.repo.Set(key, value, typ, description); err != nil {
-		return err
-	}
-	CacheDelete(ctx, ConfigCacheKey(key))
-	return nil
-}
-
-// ReloadAll invalidates all config cache entries
-func (s *ConfigService) ReloadAll(ctx context.Context) error {
-	configs, err := s.repo.GetAll()
-	if err != nil {
-		return err
-	}
-	for _, c := range configs {
-		CacheDelete(ctx, ConfigCacheKey(c.Key))
-	}
-	return nil
-}

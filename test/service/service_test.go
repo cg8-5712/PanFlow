@@ -137,13 +137,6 @@ func TestNewRecordService(t *testing.T) {
 	_ = service.NewRecordService(nil)
 }
 
-func TestNewMailService(t *testing.T) {
-	_ = service.NewMailService(nil)
-}
-
-func TestNewProxyService(t *testing.T) {
-	_ = service.NewProxyService(nil)
-}
 
 func TestCacheGetMiss(t *testing.T) {
 	ctx := context.Background()
@@ -161,30 +154,3 @@ func TestCacheSetL1Only_NoPanic(t *testing.T) {
 	}
 }
 
-func TestProxyWrapURL(t *testing.T) {
-	svc := service.NewProxyService(nil)
-	raw := "https://example.com/file.zip"
-
-	// no proxy server → unchanged
-	result := svc.WrapURL(raw, "", "")
-	if result != raw {
-		t.Fatalf("expected unchanged url, got %s", result)
-	}
-
-	// with proxy server → wrapped
-	wrapped := svc.WrapURL(raw, "https://proxy.example.com", "secret")
-	if wrapped == raw {
-		t.Fatal("expected wrapped url")
-	}
-	if len(wrapped) == 0 {
-		t.Fatal("expected non-empty wrapped url")
-	}
-}
-
-func TestProxyBuildHTTPClient_NoProxy(t *testing.T) {
-	svc := service.NewProxyService(nil)
-	client := svc.BuildHTTPClient(nil)
-	if client == nil {
-		t.Fatal("expected non-nil http client")
-	}
-}

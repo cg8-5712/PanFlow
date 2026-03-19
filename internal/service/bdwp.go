@@ -233,36 +233,3 @@ func (c *bdwpClient) LocateDownload(fsID int64, cookie, userAgent string) ([]str
 	}
 	return urls, nil
 }
-
-// ─── Delete file ──────────────────────────────────────────────────────────────
-
-type DeleteResp struct {
-	Errno int `json:"errno"`
-}
-
-// DeleteFile removes a file from the account's disk
-func (c *bdwpClient) DeleteFile(path, bdstoken, cookie, userAgent string) error {
-	pathsJSON, _ := json.Marshal([]string{path})
-
-	form := url.Values{}
-	form.Set("filelist", string(pathsJSON))
-	form.Set("bdstoken", bdstoken)
-
-	apiURL := fmt.Sprintf("%s/file/manager?opera=delete", baiduAPIBase)
-	body, err := c.post(apiURL, form, map[string]string{
-		"Cookie":     cookie,
-		"User-Agent": userAgent,
-	})
-	if err != nil {
-		return fmt.Errorf("delete file: %w", err)
-	}
-
-	var resp DeleteResp
-	if err := json.Unmarshal(body, &resp); err != nil {
-		return fmt.Errorf("parse delete resp: %w", err)
-	}
-	if resp.Errno != 0 {
-		return fmt.Errorf("delete errno %d", resp.Errno)
-	}
-	return nil
-}

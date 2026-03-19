@@ -87,8 +87,3 @@ func (s *UserService) RecordUsage(ctx context.Context, userID uint, userType str
 	CacheDelete(ctx, UserCacheKey(userID))
 	return nil
 }
-
-// InvalidateCache removes a user from all cache layers
-func (s *UserService) InvalidateCache(ctx context.Context, userID uint) {
-	CacheDelete(ctx, UserCacheKey(userID))
-}

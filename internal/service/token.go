@@ -121,8 +121,3 @@ func (s *TokenService) RecordUsage(ctx context.Context, id uint, size int64) err
 	}
 	return nil
 }
-
-// InvalidateCache removes a token from all cache layers
-func (s *TokenService) InvalidateCache(ctx context.Context, tokenStr string) {
-	CacheDelete(ctx, TokenCacheKey(tokenStr))
-}
