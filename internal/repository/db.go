@@ -7,20 +7,34 @@ import (
 	"panflow/internal/model"
 
 	"gorm.io/driver/mysql"
+	"gorm.io/driver/postgres"
+	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 	gormlogger "gorm.io/gorm/logger"
 )
 
-// NewDB opens a MySQL connection and runs AutoMigrate
+// NewDB opens a database connection and runs AutoMigrate.
+// Supported drivers: mysql (default), postgres, sqlite.
 func NewDB(cfg config.DatabaseConfig) (*gorm.DB, error) {
-	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?charset=utf8mb4&parseTime=True&loc=Local",
-		cfg.User, cfg.Password, cfg.Host, cfg.Port, cfg.Name)
+	var dialector gorm.Dialector
+	switch cfg.Driver {
+	case "postgres":
+		dsn := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable TimeZone=Asia/Shanghai",
+			cfg.Host, cfg.Port, cfg.User, cfg.Password, cfg.Name)
+		dialector = postgres.Open(dsn)
+	case "sqlite":
+		dialector = sqlite.Open(cfg.Name) // Name is the file path, e.g. "panflow.db"
+	default: // mysql
+		dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?charset=utf8mb4&parseTime=True&loc=Local",
+			cfg.User, cfg.Password, cfg.Host, cfg.Port, cfg.Name)
+		dialector = mysql.Open(dsn)
+	}
 
 	gormCfg := &gorm.Config{
 		Logger: gormlogger.Default.LogMode(gormlogger.Silent),
 	}
 
-	db, err := gorm.Open(mysql.Open(dsn), gormCfg)
+	db, err := gorm.Open(dialector, gormCfg)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open database: %w", err)
 	}

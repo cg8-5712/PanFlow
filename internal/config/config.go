@@ -13,6 +13,7 @@ type ServerConfig struct {
 }
 
 type DatabaseConfig struct {
+	Driver   string // mysql | postgres | sqlite
 	Host     string
 	Port     string
 	User     string
@@ -58,6 +59,7 @@ func Load() (*Config, error) {
 	viper.SetDefault("server.host", "0.0.0.0")
 	viper.SetDefault("server.port", "8080")
 	viper.SetDefault("server.mode", "release")
+	viper.SetDefault("database.driver", "mysql")
 	viper.SetDefault("database.host", "127.0.0.1")
 	viper.SetDefault("database.port", "3306")
 	viper.SetDefault("database.name", "panflow")
