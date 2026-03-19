@@ -19,7 +19,7 @@ redis:
 log:
   level: "info" # debug | info | warn | error
 
-hklist:
+panflow:
   # 通用
   admin_password: ""
   parse_password: ""

@@ -45,12 +45,25 @@ func (s *TokenService) GetByToken(ctx context.Context, tokenStr string) (*model.
 	return t, nil
 }
 
+// ValidateByID validates a token by its primary key (used after JWT auth)
+func (s *TokenService) ValidateByID(ctx context.Context, id uint, clientIP string) (*model.Token, error) {
+	t, err := s.repo.GetByID(id)
+	if err != nil {
+		return nil, ErrTokenNotFound
+	}
+	return s.validateToken(ctx, t, 0, clientIP)
+}
+
 // Validate checks whether a token is valid and has quota for the given size
 func (s *TokenService) Validate(ctx context.Context, tokenStr string, totalSize int64, clientIP string) (*model.Token, error) {
 	t, err := s.GetByToken(ctx, tokenStr)
 	if err != nil {
 		return nil, err
 	}
+	return s.validateToken(ctx, t, totalSize, clientIP)
+}
+
+func (s *TokenService) validateToken(ctx context.Context, t *model.Token, totalSize int64, clientIP string) (*model.Token, error) {
 
 	if !t.Switch {
 		return nil, ErrTokenDisabled

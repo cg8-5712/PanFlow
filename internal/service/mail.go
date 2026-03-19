@@ -9,10 +9,10 @@ import (
 )
 
 type MailService struct {
-	cfg *config.HklistConfig
+	cfg *config.PanflowConfig
 }
 
-func NewMailService(cfg *config.HklistConfig) *MailService {
+func NewMailService(cfg *config.PanflowConfig) *MailService {
 	return &MailService{cfg: cfg}
 }
 

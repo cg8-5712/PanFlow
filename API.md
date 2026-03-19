@@ -151,15 +151,34 @@ Base URL: `http://your-server:8080/api/v1`
 
 ## 管理端
 
-所有管理端接口需要在 Header、Query 或 Body 中传入 `admin_password`。
+所有管理端接口（除登录外）需要在请求头中携带 JWT：
 
-### POST /admin/check_password
-校验管理密码。
+```
+Authorization: Bearer <token>
+```
+
+### POST /admin/login
+管理员登录，获取 JWT。
 
 **请求**
 ```json
 {"admin_password": "your-password"}
 ```
+
+**响应**
+```json
+{
+  "code": 0,
+  "message": "success",
+  "data": {
+    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "expires_at": "2026-03-20 12:00:00"
+  }
+}
+```
+
+> JWT 默认有效期 24 小时，可通过 `hklist.jwt_expire_hours` 配置。
+> 密钥通过 `hklist.jwt_secret` 配置，**生产环境必须修改默认值**。
 
 ---
 

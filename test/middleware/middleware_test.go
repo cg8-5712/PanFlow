@@ -5,6 +5,9 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"panflow/internal/middleware"
+	"panflow/internal/service"
+
 	"github.com/gin-gonic/gin"
 )
 
@@ -47,72 +50,91 @@ func TestCorsMiddleware_Preflight(t *testing.T) {
 	}
 }
 
-func TestPassFilterAdmin_NoPassword(t *testing.T) {
-	r := newRouter(passFilterAdmin("secret"))
+// ── JWT Auth middleware tests ─────────────────────────────────────────────────
+
+func newJWTSvc() *service.JWTService {
+	return service.NewJWTService("test-secret-key", 1)
+}
+
+func TestJWTAuth_NoHeader(t *testing.T) {
+	svc := newJWTSvc()
+	r := newRouter(middleware.JWTAuth(svc, false))
 	r.GET("/admin", func(c *gin.Context) { c.Status(200) })
 
 	w := httptest.NewRecorder()
 	req, _ := http.NewRequest("GET", "/admin", nil)
 	r.ServeHTTP(w, req)
 
-	if w.Code != 403 {
-		t.Fatalf("expected 403, got %d", w.Code)
+	if w.Code != 401 {
+		t.Fatalf("expected 401 without token, got %d", w.Code)
 	}
 }
 
-func TestPassFilterAdmin_WrongPassword(t *testing.T) {
-	r := newRouter(passFilterAdmin("secret"))
+func TestJWTAuth_InvalidToken(t *testing.T) {
+	svc := newJWTSvc()
+	r := newRouter(middleware.JWTAuth(svc, false))
 	r.GET("/admin", func(c *gin.Context) { c.Status(200) })
 
 	w := httptest.NewRecorder()
 	req, _ := http.NewRequest("GET", "/admin", nil)
-	req.Header.Set("admin_password", "wrong")
+	req.Header.Set("Authorization", "Bearer not-a-valid-token")
 	r.ServeHTTP(w, req)
 
-	if w.Code != 403 {
-		t.Fatalf("expected 403, got %d", w.Code)
+	if w.Code != 401 {
+		t.Fatalf("expected 401 for invalid token, got %d", w.Code)
 	}
 }
 
-func TestPassFilterAdmin_CorrectHeader(t *testing.T) {
-	r := newRouter(passFilterAdmin("secret"))
+func TestJWTAuth_ValidToken(t *testing.T) {
+	svc := newJWTSvc()
+	tokenStr, _, err := svc.Issue()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	r := newRouter(middleware.JWTAuth(svc, false))
 	r.GET("/admin", func(c *gin.Context) { c.Status(200) })
 
 	w := httptest.NewRecorder()
 	req, _ := http.NewRequest("GET", "/admin", nil)
-	req.Header.Set("admin_password", "secret")
+	req.Header.Set("Authorization", "Bearer "+tokenStr)
 	r.ServeHTTP(w, req)
 
 	if w.Code != 200 {
-		t.Fatalf("expected 200, got %d", w.Code)
+		t.Fatalf("expected 200 with valid token, got %d", w.Code)
 	}
 }
 
-func TestPassFilterAdmin_CorrectQuery(t *testing.T) {
-	r := newRouter(passFilterAdmin("secret"))
+func TestJWTAuth_DebugMode(t *testing.T) {
+	svc := newJWTSvc()
+	r := newRouter(middleware.JWTAuth(svc, true))
 	r.GET("/admin", func(c *gin.Context) { c.Status(200) })
 
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/admin?admin_password=secret", nil)
+	req, _ := http.NewRequest("GET", "/admin", nil) // no token
 	r.ServeHTTP(w, req)
 
 	if w.Code != 200 {
-		t.Fatalf("expected 200, got %d", w.Code)
+		t.Fatalf("expected 200 in debug mode, got %d", w.Code)
 	}
 }
 
-func TestPassFilterAdmin_EmptyPassword_AlwaysPass(t *testing.T) {
-	// When configured password is empty, admin filter still checks
-	r := newRouter(passFilterAdmin(""))
+func TestJWTAuth_WrongSecretRejected(t *testing.T) {
+	issuer := service.NewJWTService("secret-A", 1)
+	verifier := service.NewJWTService("secret-B", 1)
+
+	tokenStr, _, _ := issuer.Issue()
+
+	r := newRouter(middleware.JWTAuth(verifier, false))
 	r.GET("/admin", func(c *gin.Context) { c.Status(200) })
 
 	w := httptest.NewRecorder()
 	req, _ := http.NewRequest("GET", "/admin", nil)
+	req.Header.Set("Authorization", "Bearer "+tokenStr)
 	r.ServeHTTP(w, req)
 
-	// empty password matches empty header → should pass
-	if w.Code != 200 {
-		t.Fatalf("expected 200 when password is empty, got %d", w.Code)
+	if w.Code != 401 {
+		t.Fatalf("expected 401 for mismatched secret, got %d", w.Code)
 	}
 }
 
@@ -129,7 +151,7 @@ func TestIdentifierFilter_DebugMode(t *testing.T) {
 	}
 }
 
-// ── inline middleware implementations for testing ─────────────────────────────
+// ── inline helpers ────────────────────────────────────────────────────────────
 
 func corsMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -144,24 +166,8 @@ func corsMiddleware() gin.HandlerFunc {
 	}
 }
 
-func passFilterAdmin(configuredPassword string) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		password := c.GetHeader("admin_password")
-		if password == "" {
-			password = c.Query("admin_password")
-		}
-		if password != configuredPassword {
-			c.JSON(403, gin.H{"code": 20001, "message": "admin password error"})
-			c.Abort()
-			return
-		}
-		c.Next()
-	}
-}
-
 func identifierFilterDebug() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// debug=true → always pass
 		c.Next()
 	}
 }

@@ -11,11 +11,10 @@ import (
 type ParseHandler struct {
 	parseSvc  *service.ParseService
 	configSvc *service.ConfigService
-	tokenSvc  *service.TokenService
 }
 
-func NewParseHandler(parseSvc *service.ParseService, configSvc *service.ConfigService, tokenSvc *service.TokenService) *ParseHandler {
-	return &ParseHandler{parseSvc: parseSvc, configSvc: configSvc, tokenSvc: tokenSvc}
+func NewParseHandler(parseSvc *service.ParseService, configSvc *service.ConfigService) *ParseHandler {
+	return &ParseHandler{parseSvc: parseSvc, configSvc: configSvc}
 }
 
 // GET /user/parse/config
@@ -50,33 +49,44 @@ func (h *ParseHandler) GetFileList(c *gin.Context) {
 		FailBadRequest(c, 40000, err.Error())
 		return
 	}
-	// Placeholder: full implementation in parse service
 	Success(c, gin.H{"surl": req.Surl})
 }
 
 // POST /user/parse/get_vcode
 func (h *ParseHandler) GetVcode(c *gin.Context) {
-	// Placeholder: captcha handling
 	Success(c, gin.H{"vcode": ""})
 }
 
 // POST /user/parse/get_download_links
+// Token identity is read from JWT context; no token field in request body.
 func (h *ParseHandler) GetDownloadLinks(c *gin.Context) {
 	var req struct {
-		Surl     string  `json:"surl" binding:"required"`
-		Pwd      string  `json:"pwd"`
-		FsIDs    []int64 `json:"fs_id" binding:"required,min=1"`
-		TokenStr string  `json:"token"`
+		Surl  string  `json:"surl" binding:"required"`
+		Pwd   string  `json:"pwd"`
+		FsIDs []int64 `json:"fs_id" binding:"required,min=1"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		FailBadRequest(c, 40000, err.Error())
 		return
 	}
 
+	// Identity injected by UserJWTAuth middleware
+	tokenID, _ := c.Get("jwt_token_id")
+	userType, _ := c.Get("jwt_user_type")
 	clientIP, _ := c.Get("client_ip")
 	fingerprint, _ := c.Get("fingerprint")
+
+	tid, _ := tokenID.(uint)
+	ut, _ := userType.(string)
 	ip, _ := clientIP.(string)
 	fp, _ := fingerprint.(string)
+
+	var userID *uint
+	if uid, ok := c.Get("jwt_user_id"); ok {
+		if v, ok := uid.(uint); ok {
+			userID = &v
+		}
+	}
 
 	results, err := h.parseSvc.Parse(c.Request.Context(), &service.ParseRequest{
 		Surl:        req.Surl,
@@ -85,7 +95,9 @@ func (h *ParseHandler) GetDownloadLinks(c *gin.Context) {
 		ClientIP:    ip,
 		Fingerprint: fp,
 		UA:          c.GetHeader("User-Agent"),
-		TokenStr:    req.TokenStr,
+		TokenID:     tid,
+		UserType:    ut,
+		UserID:      userID,
 	})
 	if err != nil {
 		Fail(c, http.StatusBadRequest, 40010, err.Error())

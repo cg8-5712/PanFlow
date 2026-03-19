@@ -29,11 +29,12 @@ func Setup(
 	accountSvc := service.NewAccountService(accountRepo)
 	recordSvc := service.NewRecordService(recordRepo)
 	configSvc := service.NewConfigService(configRepo)
+	jwtSvc := service.NewJWTService(cfg.Panflow.JWTSecret, cfg.Panflow.JWTExpireHours)
 	parseSvc := service.NewParseService(
 		tokenSvc, userSvc, accountSvc, recordSvc, configSvc,
 		fileListRepo,
-		cfg.Hklist.ProxyHTTP,
-		cfg.Hklist.GuestUserAgent,
+		cfg.Panflow.ProxyHTTP,
+		cfg.Panflow.GuestUserAgent,
 	)
 
 	// Handlers
@@ -44,15 +45,20 @@ func Setup(
 	recordH := handler.NewRecordHandler(recordRepo)
 	blackListH := handler.NewBlackListHandler(blackListRepo)
 	proxyH := handler.NewProxyHandler(proxyRepo)
-	parseH := handler.NewParseHandler(parseSvc, configSvc, tokenSvc)
+	parseH := handler.NewParseHandler(parseSvc, configSvc)
+	authH := handler.NewAuthHandler(jwtSvc, tokenSvc, cfg.Panflow.AdminPassword)
 
 	r.Use(middleware.Cors())
 
 	api := r.Group("/api/v1")
 
-	// ── User routes ──────────────────────────────────────────────────────────
+	// ── Public routes ─────────────────────────────────────────────────────────
+	api.POST("/admin/login", authH.AdminLogin)
+	api.POST("/user/login", authH.UserLogin)
+
+	// ── User routes ───────────────────────────────────────────────────────────
 	user := api.Group("")
-	user.Use(middleware.IdentifierFilter(blackListRepo, cfg.Hklist.Debug))
+	user.Use(middleware.IdentifierFilter(blackListRepo, cfg.Panflow.Debug))
 	{
 		user.GET("/user/parse/config", parseH.GetConfig)
 		user.GET("/user/parse/limit", parseH.GetLimit)
@@ -65,14 +71,10 @@ func Setup(
 		user.GET("/user/history", recordH.UserHistory)
 	}
 
-	// ── Admin routes ─────────────────────────────────────────────────────────
+	// ── Admin routes (JWT protected) ──────────────────────────────────────────
 	admin := api.Group("/admin")
-	admin.Use(middleware.PassFilterAdmin(&cfg.Hklist))
+	admin.Use(middleware.JWTAuth(jwtSvc, cfg.Panflow.Debug))
 	{
-		admin.POST("/check_password", func(c *gin.Context) {
-			handler.SuccessMsg(c, "ok")
-		})
-
 		admin.GET("/account", accountH.List)
 		admin.POST("/account", accountH.Create)
 		admin.PATCH("/account", accountH.Update)

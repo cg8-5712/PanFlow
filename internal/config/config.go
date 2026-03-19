@@ -31,10 +31,12 @@ type LogConfig struct {
 	Level string
 }
 
-type HklistConfig struct {
+type PanflowConfig struct {
 	// 通用
 	AdminPassword    string `mapstructure:"admin_password"`
 	ParsePassword    string `mapstructure:"parse_password"`
+	JWTSecret        string `mapstructure:"jwt_secret"`
+	JWTExpireHours   int    `mapstructure:"jwt_expire_hours"`
 	ShowAnnounce     bool   `mapstructure:"show_announce"`
 	Announce         string `mapstructure:"announce"`
 	CustomScript     string `mapstructure:"custom_script"`
@@ -98,7 +100,7 @@ type Config struct {
 	Database DatabaseConfig
 	Redis    RedisConfig
 	Log      LogConfig
-	Hklist   HklistConfig
+	Panflow   PanflowConfig
 }
 
 func Load() (*Config, error) {
@@ -118,19 +120,21 @@ func Load() (*Config, error) {
 	viper.SetDefault("redis.port", "6379")
 	viper.SetDefault("redis.db", 0)
 	viper.SetDefault("log.level", "info")
-	viper.SetDefault("hklist.name", "PanFlow")
-	viper.SetDefault("hklist.logo", "/favicon.ico")
-	viper.SetDefault("hklist.save_histories_day", 7)
-	viper.SetDefault("hklist.max_once", 5)
-	viper.SetDefault("hklist.max_single_filesize", 53687091200)
-	viper.SetDefault("hklist.max_all_filesize", 10737418240)
-	viper.SetDefault("hklist.token_user_agent", "netdisk;P2SP;3.0.20.138")
-	viper.SetDefault("hklist.guest_user_agent", "netdisk;P2SP;3.0.20.138")
-	viper.SetDefault("hklist.token_proxy_password", "panflow")
-	viper.SetDefault("hklist.guest_proxy_password", "panflow")
-	viper.SetDefault("hklist.ddddocr_server", "https://ddddocr.huankong.top")
-	viper.SetDefault("hklist.fake_user_agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36")
-	viper.SetDefault("hklist.fake_cookie", "BAIDUID=A4FDFAE43DDBF7E6956B02F6EF715373:FG=1; BAIDUID_BFESS=A4FDFAE43DDBF7E6956B02F6EF715373:FG=1; newlogin=1")
+	viper.SetDefault("panflow.name", "PanFlow")
+	viper.SetDefault("panflow.logo", "/favicon.ico")
+	viper.SetDefault("panflow.jwt_secret", "panflow-change-me")
+	viper.SetDefault("panflow.jwt_expire_hours", 24)
+	viper.SetDefault("panflow.save_histories_day", 7)
+	viper.SetDefault("panflow.max_once", 5)
+	viper.SetDefault("panflow.max_single_filesize", 53687091200)
+	viper.SetDefault("panflow.max_all_filesize", 10737418240)
+	viper.SetDefault("panflow.token_user_agent", "netdisk;P2SP;3.0.20.138")
+	viper.SetDefault("panflow.guest_user_agent", "netdisk;P2SP;3.0.20.138")
+	viper.SetDefault("panflow.token_proxy_password", "panflow")
+	viper.SetDefault("panflow.guest_proxy_password", "panflow")
+	viper.SetDefault("panflow.ddddocr_server", "https://ddddocr.huankong.top")
+	viper.SetDefault("panflow.fake_user_agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36")
+	viper.SetDefault("panflow.fake_cookie", "BAIDUID=A4FDFAE43DDBF7E6956B02F6EF715373:FG=1; BAIDUID_BFESS=A4FDFAE43DDBF7E6956B02F6EF715373:FG=1; newlogin=1")
 
 	viper.AutomaticEnv()
 	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
@@ -147,8 +151,8 @@ func Load() (*Config, error) {
 	}
 
 	// 保证 save_histories_day 最小为 7
-	if cfg.Hklist.SaveHistoriesDay < 7 {
-		cfg.Hklist.SaveHistoriesDay = 7
+	if cfg.Panflow.SaveHistoriesDay < 7 {
+		cfg.Panflow.SaveHistoriesDay = 7
 	}
 
 	return &cfg, nil
