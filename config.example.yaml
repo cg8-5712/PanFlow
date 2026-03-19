@@ -20,62 +20,26 @@ log:
   level: "info" # debug | info | warn | error
 
 panflow:
-  # 通用
   admin_password: ""
   parse_password: ""
-  show_announce: false
-  announce: ""
-  custom_script: ""
-  custom_button: ""
-  show_hero: false
-  name: "PanFlow"
-  logo: "/favicon.ico"
+  jwt_secret: "panflow-change-me"
+  jwt_expire_hours: 24
   debug: false
-  disable_check_rand: true
   save_histories_day: 7
 
   # 解析
-  parser_server: ""
-  parser_password: ""
-  allow_folder: false
-  ddddocr_server: "https://ddddocr.huankong.top"
-  token_parse_mode: 0
-  token_user_agent: "netdisk;P2SP;3.0.20.138"
-  guest_parse_mode: 0
   guest_user_agent: "netdisk;P2SP;3.0.20.138"
-  token_proxy_host: ""
-  token_proxy_password: "panflow"
-  guest_proxy_host: ""
-  guest_proxy_password: "panflow"
-  moiu_token: ""
 
-  # 限制
-  max_once: 5
-  min_single_filesize: 0
-  max_single_filesize: 53687091200
-  max_all_filesize: 10737418240
-  max_download_daily_pre_account: 0
-  limit_cn: false
-  limit_prov: false
-  remove_limit: false
-
-  # 全局代理
-  proxy_enable: false
+  # 全局代理（可选）
   proxy_http: ""
-  proxy_https: ""
 
-  # 邮件
+  # 邮件（可选）
   mail_switch: false
-  mail_host: "smtp.mailtrap.io"
-  mail_port: 2525
+  mail_host: "smtp.example.com"
+  mail_port: 465
   mail_username: ""
   mail_password: ""
   mail_from_address: ""
-  mail_from_name: ""
+  mail_from_name: "PanFlow"
   mail_to_address: ""
   mail_to_name: ""
-
-  # 伪装
-  fake_user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
-  fake_wx_user_agent: "Mozilla/5.0 (Linux; Android 7.1.1; MI 6 Build/NMF26X; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/57.0.2987.132 MQQBrowser/6.2 TBS/043807 Mobile Safari/537.36 MicroMessenger/6.6.1.1220(0x26060135) NetType/4G Language/zh_CN miniProgram"
-  fake_cookie: "BAIDUID=A4FDFAE43DDBF7E6956B02F6EF715373:FG=1; BAIDUID_BFESS=A4FDFAE43DDBF7E6956B02F6EF715373:FG=1; newlogin=1"
