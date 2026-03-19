@@ -2,6 +2,7 @@ package handler
 
 import (
 	"net/http"
+	"time"
 
 	"panflow/internal/repository"
 	"panflow/internal/service"
@@ -14,23 +15,23 @@ type AuthHandler struct {
 	jwtSvc        *service.JWTService
 	tokenSvc      *service.TokenService
 	userRepo      *repository.UserRepository
-	tokenRepo     *repository.TokenRepository
 	adminPassword string
+	refreshTTL    time.Duration
 }
 
 func NewAuthHandler(
 	jwtSvc *service.JWTService,
 	tokenSvc *service.TokenService,
 	userRepo *repository.UserRepository,
-	tokenRepo *repository.TokenRepository,
 	adminPassword string,
+	refreshDays int,
 ) *AuthHandler {
 	return &AuthHandler{
 		jwtSvc:        jwtSvc,
 		tokenSvc:      tokenSvc,
 		userRepo:      userRepo,
-		tokenRepo:     tokenRepo,
 		adminPassword: adminPassword,
+		refreshTTL:    time.Duration(refreshDays) * 24 * time.Hour,
 	}
 }
 
@@ -43,7 +44,6 @@ func (h *AuthHandler) AdminLogin(c *gin.Context) {
 		Fail(c, http.StatusBadRequest, 40000, "admin_password required")
 		return
 	}
-
 	if req.AdminPassword != h.adminPassword {
 		Fail(c, http.StatusUnauthorized, 20001, "admin password error")
 		return
@@ -54,7 +54,6 @@ func (h *AuthHandler) AdminLogin(c *gin.Context) {
 		FailInternal(c, "failed to issue token")
 		return
 	}
-
 	Success(c, gin.H{
 		"token":      tokenStr,
 		"expires_at": exp.Format("2006-01-02 15:04:05"),
@@ -76,19 +75,60 @@ func (h *AuthHandler) UserLogin(c *gin.Context) {
 		return
 	}
 
-	// 账号密码登录
 	if req.Username != "" {
 		h.loginWithPassword(c, req.Username, req.Password)
 		return
 	}
-
-	// token 登录
 	if req.Token == "" {
 		Fail(c, http.StatusBadRequest, 40000, "token or username+password required")
 		return
 	}
 	h.loginWithToken(c, req.Token)
 }
+
+// POST /user/refresh
+func (h *AuthHandler) RefreshToken(c *gin.Context) {
+	var req struct {
+		RefreshToken string `json:"refresh_token" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		Fail(c, http.StatusBadRequest, 40000, err.Error())
+		return
+	}
+
+	ctx := c.Request.Context()
+	payload, err := service.GetRefreshToken(ctx, req.RefreshToken)
+	if err != nil {
+		Fail(c, http.StatusUnauthorized, 20007, "refresh token invalid or expired")
+		return
+	}
+
+	accessStr, exp, err := h.jwtSvc.IssueUser(payload.TokenID, payload.UserType, payload.UserID)
+	if err != nil {
+		FailInternal(c, "failed to issue token")
+		return
+	}
+
+	Success(c, gin.H{
+		"access_token": accessStr,
+		"expires_at":   exp.Format("2006-01-02 15:04:05"),
+	})
+}
+
+// POST /user/logout
+func (h *AuthHandler) Logout(c *gin.Context) {
+	var req struct {
+		RefreshToken string `json:"refresh_token" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		Fail(c, http.StatusBadRequest, 40000, err.Error())
+		return
+	}
+	service.DeleteRefreshToken(c.Request.Context(), req.RefreshToken)
+	SuccessMsg(c, "logged out")
+}
+
+// ── internal helpers ──────────────────────────────────────────────────────────
 
 func (h *AuthHandler) loginWithToken(c *gin.Context, tokenStr string) {
 	tok, err := h.tokenSvc.GetByToken(c.Request.Context(), tokenStr)
@@ -100,18 +140,7 @@ func (h *AuthHandler) loginWithToken(c *gin.Context, tokenStr string) {
 		Fail(c, http.StatusForbidden, 20004, "token is disabled")
 		return
 	}
-
-	jwtStr, exp, err := h.jwtSvc.IssueUser(tok.ID, tok.UserType, tok.ProviderUserID)
-	if err != nil {
-		FailInternal(c, "failed to issue token")
-		return
-	}
-
-	Success(c, gin.H{
-		"token":      jwtStr,
-		"user_type":  tok.UserType,
-		"expires_at": exp.Format("2006-01-02 15:04:05"),
-	})
+	h.issueTokenPair(c, tok.ID, tok.UserType, tok.ProviderUserID)
 }
 
 func (h *AuthHandler) loginWithPassword(c *gin.Context, username, password string) {
@@ -119,35 +148,47 @@ func (h *AuthHandler) loginWithPassword(c *gin.Context, username, password strin
 		Fail(c, http.StatusBadRequest, 40000, "password required")
 		return
 	}
-
 	user, err := h.userRepo.GetByUsername(username)
 	if err != nil || user.Password == "" {
 		Fail(c, http.StatusUnauthorized, 20005, "username or password error")
 		return
 	}
-
 	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password)); err != nil {
 		Fail(c, http.StatusUnauthorized, 20005, "username or password error")
 		return
 	}
+	h.issueTokenPair(c, 0, user.UserType, &user.ID)
+}
 
-	// 找到该用户绑定的 token
-	tok, err := h.tokenRepo.GetByProviderUserID(user.ID)
+// issueTokenPair 生成 access token + refresh token 并写 Redis
+func (h *AuthHandler) issueTokenPair(c *gin.Context, tokenID uint, userType string, userID *uint) {
+	ctx := c.Request.Context()
+
+	accessStr, exp, err := h.jwtSvc.IssueUser(tokenID, userType, userID)
 	if err != nil {
-		Fail(c, http.StatusUnauthorized, 20006, "no active token linked to this account")
+		FailInternal(c, "failed to issue access token")
 		return
 	}
 
-	uid := user.ID
-	jwtStr, exp, err := h.jwtSvc.IssueUser(tok.ID, user.UserType, &uid)
+	refreshStr, err := service.NewRefreshToken()
 	if err != nil {
-		FailInternal(c, "failed to issue token")
+		FailInternal(c, "failed to generate refresh token")
+		return
+	}
+
+	if err := service.SetRefreshToken(ctx, refreshStr, service.RefreshPayload{
+		TokenID:  tokenID,
+		UserType: userType,
+		UserID:   userID,
+	}, h.refreshTTL); err != nil {
+		FailInternal(c, "failed to store refresh token")
 		return
 	}
 
 	Success(c, gin.H{
-		"token":      jwtStr,
-		"user_type":  user.UserType,
-		"expires_at": exp.Format("2006-01-02 15:04:05"),
+		"access_token":  accessStr,
+		"refresh_token": refreshStr,
+		"user_type":     userType,
+		"expires_at":    exp.Format("2006-01-02 15:04:05"),
 	})
 }

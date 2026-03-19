@@ -33,9 +33,10 @@ type LogConfig struct {
 }
 
 type PanflowConfig struct {
-	AdminPassword  string `mapstructure:"admin_password"`
-	JWTSecret      string `mapstructure:"jwt_secret"`
-	JWTExpireHours int    `mapstructure:"jwt_expire_hours"`
+	AdminPassword   string `mapstructure:"admin_password"`
+	JWTSecret       string `mapstructure:"jwt_secret"`
+	JWTExpireHours  int    `mapstructure:"jwt_expire_hours"`
+	JWTRefreshDays  int    `mapstructure:"jwt_refresh_days"`
 	Debug          bool   `mapstructure:"debug"`
 	GuestUserAgent string `mapstructure:"guest_user_agent"`
 	ProxyHTTP      string `mapstructure:"proxy_http"`
@@ -68,7 +69,8 @@ func Load() (*Config, error) {
 	viper.SetDefault("redis.db", 0)
 	viper.SetDefault("log.level", "info")
 	viper.SetDefault("panflow.jwt_secret", "panflow-change-me")
-	viper.SetDefault("panflow.jwt_expire_hours", 24)
+	viper.SetDefault("panflow.jwt_expire_hours", 2)
+	viper.SetDefault("panflow.jwt_refresh_days", 7)
 	viper.SetDefault("panflow.guest_user_agent", "netdisk;P2SP;3.0.20.138")
 
 	viper.AutomaticEnv()

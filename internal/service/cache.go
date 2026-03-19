@@ -2,6 +2,8 @@ package service
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"time"
@@ -99,4 +101,51 @@ func UserCacheKey(id uint) string {
 // BlacklistCacheKey returns the cache key for a blacklist entry
 func BlacklistCacheKey(typ, identifier string) string {
 	return fmt.Sprintf("blacklist:%s:%s", typ, identifier)
+}
+
+// ── Refresh token ─────────────────────────────────────────────────────────────
+
+// RefreshPayload is stored in Redis against a refresh token string
+type RefreshPayload struct {
+	TokenID  uint   `json:"token_id"`
+	UserType string `json:"user_type"`
+	UserID   *uint  `json:"user_id,omitempty"`
+}
+
+// NewRefreshToken generates a cryptographically random 32-byte hex string
+func NewRefreshToken() (string, error) {
+	b := make([]byte, 32)
+	if _, err := rand.Read(b); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(b), nil
+}
+
+func refreshKey(token string) string { return "refresh:" + token }
+
+// SetRefreshToken stores a refresh token payload in Redis only
+func SetRefreshToken(ctx context.Context, token string, p RefreshPayload, ttl time.Duration) error {
+	b, err := json.Marshal(p)
+	if err != nil {
+		return err
+	}
+	return cache.RedisSet(ctx, refreshKey(token), string(b), ttl)
+}
+
+// GetRefreshToken retrieves and parses a refresh token payload from Redis
+func GetRefreshToken(ctx context.Context, token string) (*RefreshPayload, error) {
+	raw, err := cache.RedisGet(ctx, refreshKey(token))
+	if err != nil {
+		return nil, err
+	}
+	var p RefreshPayload
+	if err := json.Unmarshal([]byte(raw), &p); err != nil {
+		return nil, err
+	}
+	return &p, nil
+}
+
+// DeleteRefreshToken removes a refresh token from Redis (logout)
+func DeleteRefreshToken(ctx context.Context, token string) {
+	_ = cache.RedisDelete(ctx, refreshKey(token))
 }

@@ -44,7 +44,7 @@ func Setup(
 	recordH := handler.NewRecordHandler(recordRepo)
 	blackListH := handler.NewBlackListHandler(blackListRepo)
 	parseH := handler.NewParseHandler(parseSvc, configSvc)
-	authH := handler.NewAuthHandler(jwtSvc, tokenSvc, userRepo, tokenRepo, cfg.Panflow.AdminPassword)
+	authH := handler.NewAuthHandler(jwtSvc, tokenSvc, userRepo, cfg.Panflow.AdminPassword, cfg.Panflow.JWTRefreshDays)
 
 	r.Use(middleware.Cors())
 
@@ -53,6 +53,8 @@ func Setup(
 	// ── Public routes ─────────────────────────────────────────────────────────
 	api.POST("/admin/login", authH.AdminLogin)
 	api.POST("/user/login", authH.UserLogin)
+	api.POST("/user/refresh", authH.RefreshToken)
+	api.POST("/user/logout", authH.Logout)
 
 	// ── User routes（公开，仅 IdentifierFilter）────────────────────────────────
 	public := api.Group("")
