@@ -126,7 +126,7 @@ func TestNewUserService(t *testing.T) {
 }
 
 func TestNewAccountService(t *testing.T) {
-	_ = service.NewAccountService(nil)
+	_ = service.NewAccountService(nil, "")
 }
 
 func TestNewConfigService(t *testing.T) {

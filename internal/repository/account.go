@@ -1,10 +1,19 @@
 package repository
 
 import (
+	"time"
+
 	"panflow/internal/model"
 
 	"gorm.io/gorm"
 )
+
+// AccountWithStats embeds Account and adds today's usage aggregates
+type AccountWithStats struct {
+	model.Account
+	TodayCount int64 `json:"today_count"`
+	TodaySize  int64 `json:"today_size"`
+}
 
 type AccountRepository struct {
 	db *gorm.DB
@@ -69,4 +78,32 @@ func (r *AccountRepository) IncrementUsage(id uint, size int64) error {
 		"used_size":   gorm.Expr("used_size + ?", size),
 		"last_use_at": gorm.Expr("NOW()"),
 	}).Error
+}
+
+// UpdateData overwrites the account_data field for a given account
+func (r *AccountRepository) UpdateData(id uint, data model.JSONMap) error {
+	return r.db.Model(&model.Account{}).Where("id = ?", id).Update("account_data", data).Error
+}
+
+// ListWithTodayStats returns paginated accounts with today's count and size aggregated from records
+func (r *AccountRepository) ListWithTodayStats(offset, limit int) ([]AccountWithStats, int64, error) {
+	var total int64
+	if err := r.db.Model(&model.Account{}).Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	today := time.Now().Format("2006-01-02")
+
+	var rows []AccountWithStats
+	err := r.db.Model(&model.Account{}).
+		Select(`accounts.*,
+			COALESCE(SUM(CASE WHEN DATE(r.created_at) = ? THEN 1 ELSE 0 END), 0) AS today_count,
+			COALESCE(SUM(CASE WHEN DATE(r.created_at) = ? THEN fl.size ELSE 0 END), 0) AS today_size`,
+			today, today).
+		Joins("LEFT JOIN records r ON r.account_id = accounts.id AND r.deleted_at IS NULL").
+		Joins("LEFT JOIN file_lists fl ON fl.id = r.fs_id").
+		Group("accounts.id").
+		Offset(offset).Limit(limit).
+		Scan(&rows).Error
+	return rows, total, err
 }

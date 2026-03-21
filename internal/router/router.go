@@ -25,7 +25,7 @@ func Setup(
 	// Services
 	tokenSvc := service.NewTokenService(tokenRepo)
 	userSvc := service.NewUserService(userRepo)
-	accountSvc := service.NewAccountService(accountRepo)
+	accountSvc := service.NewAccountService(accountRepo, cfg.Panflow.ProxyHTTP)
 	recordSvc := service.NewRecordService(recordRepo)
 	configSvc := service.NewConfigService(configRepo)
 	jwtSvc := service.NewJWTService(cfg.Panflow.JWTSecret, cfg.Panflow.JWTExpireHours)
@@ -37,7 +37,7 @@ func Setup(
 	)
 
 	// Handlers
-	accountH := handler.NewAccountHandler(accountRepo)
+	accountH := handler.NewAccountHandler(accountRepo, accountSvc)
 	tokenH := handler.NewTokenHandler(tokenRepo)
 	userH := handler.NewUserHandler(userRepo)
 	configH := handler.NewConfigHandler(configRepo)
@@ -86,6 +86,9 @@ func Setup(
 		admin.POST("/account", accountH.Create)
 		admin.PATCH("/account", accountH.Update)
 		admin.DELETE("/account", accountH.Delete)
+		admin.POST("/account/update_data", accountH.UpdateData)
+		admin.POST("/account/check_ban_status", accountH.CheckBanStatus)
+		admin.POST("/account/check_enterprise_cid", accountH.CheckEnterpriseCID)
 
 		admin.GET("/token", tokenH.List)
 		admin.POST("/token", tokenH.Create)

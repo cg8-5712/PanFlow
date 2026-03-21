@@ -5,6 +5,7 @@ import (
 
 	"panflow/internal/model"
 	"panflow/internal/repository"
+	"panflow/internal/service"
 
 	"github.com/gin-gonic/gin"
 )
@@ -53,11 +54,12 @@ func (h *ConfigHandler) Reload(c *gin.Context) {
 }
 
 type AccountHandler struct {
-	repo *repository.AccountRepository
+	repo       *repository.AccountRepository
+	accountSvc *service.AccountService
 }
 
-func NewAccountHandler(repo *repository.AccountRepository) *AccountHandler {
-	return &AccountHandler{repo: repo}
+func NewAccountHandler(repo *repository.AccountRepository, accountSvc *service.AccountService) *AccountHandler {
+	return &AccountHandler{repo: repo, accountSvc: accountSvc}
 }
 
 // GET /admin/account
@@ -74,7 +76,7 @@ func (h *AccountHandler) List(c *gin.Context) {
 		q.Limit = 20
 	}
 
-	accounts, total, err := h.repo.List((q.Page-1)*q.Limit, q.Limit)
+	accounts, total, err := h.repo.ListWithTodayStats((q.Page-1)*q.Limit, q.Limit)
 	if err != nil {
 		FailInternal(c, err.Error())
 		return
@@ -128,4 +130,110 @@ func (h *AccountHandler) Delete(c *gin.Context) {
 		return
 	}
 	c.Status(http.StatusNoContent)
+}
+
+// POST /admin/account/update_data
+func (h *AccountHandler) UpdateData(c *gin.Context) {
+	var req struct {
+		ID   uint            `json:"id" binding:"required"`
+		Data model.JSONMap   `json:"data" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		FailBadRequest(c, 40000, err.Error())
+		return
+	}
+	if err := h.repo.UpdateData(req.ID, req.Data); err != nil {
+		FailInternal(c, err.Error())
+		return
+	}
+	SuccessMsg(c, "updated")
+}
+
+// POST /admin/account/check_ban_status
+func (h *AccountHandler) CheckBanStatus(c *gin.Context) {
+	var req struct {
+		ID uint `json:"id" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		FailBadRequest(c, 40000, err.Error())
+		return
+	}
+	acc, err := h.repo.GetByID(req.ID)
+	if err != nil {
+		Fail(c, http.StatusNotFound, 40400, "account not found")
+		return
+	}
+
+	var cookieOrToken, accountType string
+	var cid int64
+	accountType = acc.AccountType
+
+	switch acc.AccountType {
+	case "cookie", "enterprise_cookie":
+		cookieOrToken, _ = acc.AccountData["cookie"].(string)
+		if acc.AccountType == "enterprise_cookie" {
+			if v, ok := acc.AccountData["cid"].(float64); ok {
+				cid = int64(v)
+			}
+		}
+	case "open_platform":
+		cookieOrToken, _ = acc.AccountData["access_token"].(string)
+	default:
+		FailBadRequest(c, 40001, "unsupported account type for ban check")
+		return
+	}
+
+	if cookieOrToken == "" {
+		FailBadRequest(c, 40001, "account has no cookie or access_token")
+		return
+	}
+
+	ua := "netdisk;P2SP;3.0.20.138"
+	status, err := h.accountSvc.CheckBanStatus(accountType, cookieOrToken, ua, cid)
+	if err != nil {
+		FailInternal(c, err.Error())
+		return
+	}
+	Success(c, status)
+}
+
+// POST /admin/account/check_enterprise_cid
+func (h *AccountHandler) CheckEnterpriseCID(c *gin.Context) {
+	var req struct {
+		ID uint `json:"id" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		FailBadRequest(c, 40000, err.Error())
+		return
+	}
+	acc, err := h.repo.GetByID(req.ID)
+	if err != nil {
+		Fail(c, http.StatusNotFound, 40400, "account not found")
+		return
+	}
+	if acc.AccountType != "enterprise_cookie" {
+		FailBadRequest(c, 40001, "account is not enterprise_cookie type")
+		return
+	}
+
+	cookie, _ := acc.AccountData["cookie"].(string)
+	if cookie == "" {
+		FailBadRequest(c, 40001, "account has no cookie")
+		return
+	}
+
+	ua := "netdisk;P2SP;3.0.20.138"
+	actualCID, err := h.accountSvc.GetEnterpriseCID(cookie, ua)
+	if err != nil {
+		FailInternal(c, err.Error())
+		return
+	}
+
+	storedCID, _ := acc.AccountData["cid"].(float64)
+	match := int64(storedCID) == actualCID
+	Success(c, gin.H{
+		"actual_cid": actualCID,
+		"stored_cid": int64(storedCID),
+		"match":      match,
+	})
 }

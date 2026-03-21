@@ -191,6 +191,116 @@ func (c *bdwpClient) TransferFiles(surl, pwd string, fsIDs []int64, shareID, uk 
 	return nil
 }
 
+// ─── Ban / speed-limit check ─────────────────────────────────────────────────
+
+type BanStatus struct {
+	Banned          bool   `json:"banned"`
+	StartTime       int64  `json:"start_time"`
+	EndTime         int64  `json:"end_time"`
+	BanReason       string `json:"ban_reason"`
+	BanTimes        int    `json:"ban_times"`
+	BanMsg          string `json:"ban_msg"`
+	UserOperateType int    `json:"user_operate_type"`
+}
+
+// CheckBanStatus calls the Baidu APL (anti-piracy-link) API to check whether
+// the account is banned or speed-limited. cid is optional (enterprise accounts).
+func (c *bdwpClient) CheckBanStatus(accountType, cookieOrToken, userAgent string, cid int64) (*BanStatus, error) {
+	params := url.Values{}
+	if accountType == "open_platform" {
+		params.Set("access_token", cookieOrToken)
+	}
+	if cid != 0 {
+		params.Set("cid", fmt.Sprintf("%d", cid))
+	}
+
+	apiURL := "https://pan.baidu.com/api/checkapl/download"
+	if len(params) > 0 {
+		apiURL += "?" + params.Encode()
+	}
+
+	headers := map[string]string{
+		"User-Agent": userAgent,
+	}
+	if accountType == "cookie" || accountType == "enterprise_cookie" {
+		headers["Cookie"] = cookieOrToken
+	}
+
+	body, err := c.get(apiURL, headers)
+	if err != nil {
+		return nil, fmt.Errorf("check ban status: %w", err)
+	}
+
+	var raw struct {
+		Errno int `json:"errno"`
+		Anti  struct {
+			StartTime       int64  `json:"start_time"`
+			EndTime         int64  `json:"end_time"`
+			BanStatus       bool   `json:"ban_status"`
+			BanReason       string `json:"ban_reason"`
+			BanTimes        int    `json:"ban_times"`
+			BanMsg          string `json:"ban_msg"`
+			UserOperateType int    `json:"user_operate_type"`
+		} `json:"anti"`
+	}
+	if err := json.Unmarshal(body, &raw); err != nil {
+		return nil, fmt.Errorf("parse ban status: %w", err)
+	}
+	if raw.Errno != 0 {
+		return nil, fmt.Errorf("checkapl errno %d", raw.Errno)
+	}
+
+	return &BanStatus{
+		Banned:          raw.Anti.BanStatus,
+		StartTime:       raw.Anti.StartTime,
+		EndTime:         raw.Anti.EndTime,
+		BanReason:       raw.Anti.BanReason,
+		BanTimes:        raw.Anti.BanTimes,
+		BanMsg:          raw.Anti.BanMsg,
+		UserOperateType: raw.Anti.UserOperateType,
+	}, nil
+}
+
+// ─── Enterprise account CID ────────────────────────────────────────────────────
+
+type EnterpriseCIDResp struct {
+	Errno int    `json:"errno"`
+	CID   int64  `json:"cid"`
+	Name  string `json:"server_filename"`
+}
+
+// GetEnterpriseCID fetches the enterprise drive CID (root folder ID) for the
+// cookie holder. This is used to verify that the CID stored in account_data
+// matches the actual CID of the enterprise account.
+func (c *bdwpClient) GetEnterpriseCID(cookie, userAgent string) (int64, error) {
+	params := url.Values{}
+	params.Set("method", "info")
+	params.Set("type", "0")
+
+	apiURL := fmt.Sprintf("%s/nas/v3/user?%s", baiduDiskBase, params.Encode())
+	body, err := c.get(apiURL, map[string]string{
+		"Cookie":     cookie,
+		"User-Agent": userAgent,
+	})
+	if err != nil {
+		return 0, fmt.Errorf("get enterprise cid: %w", err)
+	}
+
+	var resp struct {
+		Errno int `json:"errno"`
+		Info  struct {
+			CID int64 `json:"cid"`
+		} `json:"info"`
+	}
+	if err := json.Unmarshal(body, &resp); err != nil {
+		return 0, fmt.Errorf("parse enterprise cid: %w", err)
+	}
+	if resp.Errno != 0 {
+		return 0, fmt.Errorf("get enterprise cid errno %d", resp.Errno)
+	}
+	return resp.Info.CID, nil
+}
+
 // ─── Locate download ──────────────────────────────────────────────────────────
 
 type LocateResp struct {

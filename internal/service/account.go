@@ -14,11 +14,12 @@ var (
 )
 
 type AccountService struct {
-	repo *repository.AccountRepository
+	repo   *repository.AccountRepository
+	client *bdwpClient
 }
 
-func NewAccountService(repo *repository.AccountRepository) *AccountService {
-	return &AccountService{repo: repo}
+func NewAccountService(repo *repository.AccountRepository, proxyURL string) *AccountService {
+	return &AccountService{repo: repo, client: newBdwpClient(proxyURL)}
 }
 
 // PickForUser selects an available account for the given user.
@@ -46,4 +47,14 @@ func (s *AccountService) PickForUser(ctx context.Context, user *model.User) (*mo
 // RecordUsage increments account usage counters
 func (s *AccountService) RecordUsage(ctx context.Context, id uint, size int64) error {
 	return s.repo.IncrementUsage(id, size)
+}
+
+// CheckBanStatus calls the Baidu APL API to check if the account is banned/speed-limited
+func (s *AccountService) CheckBanStatus(accountType, cookieOrToken, userAgent string, cid int64) (*BanStatus, error) {
+	return s.client.CheckBanStatus(accountType, cookieOrToken, userAgent, cid)
+}
+
+// GetEnterpriseCID fetches the enterprise drive CID for the account identified by cookie
+func (s *AccountService) GetEnterpriseCID(cookie, userAgent string) (int64, error) {
+	return s.client.GetEnterpriseCID(cookie, userAgent)
 }
