@@ -169,15 +169,17 @@ func (h *AccountHandler) CheckBanStatus(c *gin.Context) {
 	accountType = acc.AccountType
 
 	switch acc.AccountType {
-	case "cookie", "enterprise_cookie":
+	case "cookie":
 		cookieOrToken, _ = acc.AccountData["cookie"].(string)
-		if acc.AccountType == "enterprise_cookie" {
-			if v, ok := acc.AccountData["cid"].(float64); ok {
-				cid = int64(v)
-			}
+	case "enterprise_cookie":
+		cookieOrToken, _ = acc.AccountData["cookie"].(string)
+		if v, ok := acc.AccountData["cid"].(float64); ok {
+			cid = int64(v)
 		}
 	case "open_platform":
 		cookieOrToken, _ = acc.AccountData["access_token"].(string)
+	case "download_ticket":
+		cookieOrToken, _ = acc.AccountData["download_cookie"].(string)
 	default:
 		FailBadRequest(c, 40001, "unsupported account type for ban check")
 		return

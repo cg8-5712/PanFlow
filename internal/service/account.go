@@ -3,7 +3,7 @@ package service
 import (
 	"context"
 	"errors"
-	"math/rand"
+	"sync/atomic"
 
 	"panflow/internal/model"
 	"panflow/internal/repository"
@@ -14,8 +14,9 @@ var (
 )
 
 type AccountService struct {
-	repo   *repository.AccountRepository
-	client *bdwpClient
+	repo    *repository.AccountRepository
+	client  *bdwpClient
+	counter atomic.Uint64
 }
 
 func NewAccountService(repo *repository.AccountRepository, proxyURL string) *AccountService {
@@ -23,7 +24,7 @@ func NewAccountService(repo *repository.AccountRepository, proxyURL string) *Acc
 }
 
 // PickForUser selects an available account for the given user.
-// SVIP users only get their own account; others get a random account from the pool.
+// SVIP users only get their own account; others get the next account via round-robin.
 func (s *AccountService) PickForUser(ctx context.Context, user *model.User) (*model.Account, error) {
 	if user != nil && user.UserType == "svip" && user.BaiduAccountID != nil {
 		acc, err := s.repo.GetByID(*user.BaiduAccountID)
@@ -41,7 +42,8 @@ func (s *AccountService) PickForUser(ctx context.Context, user *model.User) (*mo
 		return nil, ErrNoAvailableAccount
 	}
 
-	return &accounts[rand.Intn(len(accounts))], nil
+	idx := s.counter.Add(1) % uint64(len(accounts))
+	return &accounts[idx], nil
 }
 
 // RecordUsage increments account usage counters

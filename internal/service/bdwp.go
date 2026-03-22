@@ -14,14 +14,12 @@ const (
 	baiduPCSBase   = "https://pan.baidu.com"
 	baiduAPIBase   = "https://pan.baidu.com/api"
 	baiduDiskBase  = "https://pan.baidu.com/rest/2.0/xpan"
-	locateDownload = "https://pan.baidu.com/api/locatedownload"
 	defaultTimeout = 30 * time.Second
 )
 
 // bdwpClient is a thin HTTP client for Baidu Pan API calls
 type bdwpClient struct {
-	http    *http.Client
-	proxyFn func(*http.Request) (*url.URL, error)
+	http *http.Client
 }
 
 func newBdwpClient(proxyURL string) *bdwpClient {
@@ -72,6 +70,21 @@ func (c *bdwpClient) post(rawURL string, form url.Values, headers map[string]str
 	return io.ReadAll(resp.Body)
 }
 
+// withAuth 将认证信息附加到 URL（access_token）或 headers（Cookie）
+func withAuth(rawURL, cookie, accessToken, ua string) (string, map[string]string) {
+	headers := map[string]string{"User-Agent": ua}
+	if accessToken != "" {
+		sep := "&"
+		if !strings.Contains(rawURL, "?") {
+			sep = "?"
+		}
+		rawURL += sep + "access_token=" + url.QueryEscape(accessToken)
+	} else if cookie != "" {
+		headers["Cookie"] = cookie
+	}
+	return rawURL, headers
+}
+
 // ─── Share link info ──────────────────────────────────────────────────────────
 
 type ShareInfo struct {
@@ -81,22 +94,19 @@ type ShareInfo struct {
 	BDSToken string `json:"bdstoken"`
 }
 
-// GetShareInfo fetches share link metadata (shareid, uk, bdstoken)
-func (c *bdwpClient) GetShareInfo(surl, pwd, cookie, userAgent string) (*ShareInfo, error) {
-	apiURL := fmt.Sprintf("%s/share/wxlist?shorturl=%s&root=1", baiduPCSBase, surl)
+// GetShareInfo 获取分享链接元数据（shareid、uk、bdstoken）
+func (c *bdwpClient) GetShareInfo(surl, pwd, cookie, accessToken, userAgent string) (*ShareInfo, error) {
+	rawURL := fmt.Sprintf("%s/share/wxlist?shorturl=%s&root=1", baiduPCSBase, surl)
 	if pwd != "" {
-		apiURL += "&pwd=" + url.QueryEscape(pwd)
+		rawURL += "&pwd=" + url.QueryEscape(pwd)
 	}
+	rawURL, headers := withAuth(rawURL, cookie, accessToken, userAgent)
+	headers["Referer"] = baiduPCSBase
 
-	body, err := c.get(apiURL, map[string]string{
-		"Cookie":     cookie,
-		"User-Agent": userAgent,
-		"Referer":    baiduPCSBase,
-	})
+	body, err := c.get(rawURL, headers)
 	if err != nil {
 		return nil, fmt.Errorf("get share info: %w", err)
 	}
-
 	var info ShareInfo
 	if err := json.Unmarshal(body, &info); err != nil {
 		return nil, fmt.Errorf("parse share info: %w", err)
@@ -122,8 +132,8 @@ type FileListResp struct {
 	List  []ShareFile `json:"list"`
 }
 
-// GetFileList fetches the file list from a share link
-func (c *bdwpClient) GetFileList(surl, pwd, cookie, userAgent string, shareID, uk int64, bdstoken string) (*FileListResp, error) {
+// GetFileList 获取分享链接的文件列表
+func (c *bdwpClient) GetFileList(surl, pwd, cookie, accessToken, userAgent string, shareID, uk int64, bdstoken string) (*FileListResp, error) {
 	params := url.Values{}
 	params.Set("shorturl", surl)
 	params.Set("shareid", fmt.Sprintf("%d", shareID))
@@ -133,16 +143,14 @@ func (c *bdwpClient) GetFileList(surl, pwd, cookie, userAgent string, shareID, u
 		params.Set("pwd", pwd)
 	}
 
-	apiURL := fmt.Sprintf("%s/share/list?%s", baiduPCSBase, params.Encode())
-	body, err := c.get(apiURL, map[string]string{
-		"Cookie":     cookie,
-		"User-Agent": userAgent,
-		"Referer":    baiduPCSBase,
-	})
+	rawURL := fmt.Sprintf("%s/share/list?%s", baiduPCSBase, params.Encode())
+	rawURL, headers := withAuth(rawURL, cookie, accessToken, userAgent)
+	headers["Referer"] = baiduPCSBase
+
+	body, err := c.get(rawURL, headers)
 	if err != nil {
 		return nil, fmt.Errorf("get file list: %w", err)
 	}
-
 	var resp FileListResp
 	if err := json.Unmarshal(body, &resp); err != nil {
 		return nil, fmt.Errorf("parse file list: %w", err)
@@ -156,8 +164,8 @@ type TransferResp struct {
 	Errno int `json:"errno"`
 }
 
-// TransferFiles saves share files into the account's "我的资源" directory
-func (c *bdwpClient) TransferFiles(surl, pwd string, fsIDs []int64, shareID, uk int64, bdstoken, cookie, userAgent string) error {
+// TransferFiles 将分享文件转存到账号的「我的资源」目录
+func (c *bdwpClient) TransferFiles(surl, pwd string, fsIDs []int64, shareID, uk int64, bdstoken, cookie, accessToken, userAgent string) error {
 	fsIDsJSON, _ := json.Marshal(fsIDs)
 
 	form := url.Values{}
@@ -171,22 +179,93 @@ func (c *bdwpClient) TransferFiles(surl, pwd string, fsIDs []int64, shareID, uk 
 		form.Set("pwd", pwd)
 	}
 
-	apiURL := fmt.Sprintf("%s/share/transfer?ondup=newcopy", baiduAPIBase)
-	body, err := c.post(apiURL, form, map[string]string{
-		"Cookie":     cookie,
-		"User-Agent": userAgent,
-		"Referer":    fmt.Sprintf("%s/s/%s", baiduPCSBase, surl),
-	})
+	rawURL := fmt.Sprintf("%s/share/transfer?ondup=newcopy", baiduAPIBase)
+	rawURL, headers := withAuth(rawURL, cookie, accessToken, userAgent)
+	headers["Referer"] = fmt.Sprintf("%s/s/%s", baiduPCSBase, surl)
+
+	body, err := c.post(rawURL, form, headers)
 	if err != nil {
 		return fmt.Errorf("transfer files: %w", err)
 	}
-
 	var resp TransferResp
 	if err := json.Unmarshal(body, &resp); err != nil {
 		return fmt.Errorf("parse transfer resp: %w", err)
 	}
 	if resp.Errno != 0 {
 		return fmt.Errorf("transfer errno %d", resp.Errno)
+	}
+	return nil
+}
+
+// ─── Locate download ──────────────────────────────────────────────────────────
+
+type LocateResp struct {
+	Errno int `json:"errno"`
+	URLs  []struct {
+		URL string `json:"url"`
+	} `json:"urls"`
+}
+
+// LocateDownload 获取文件的高速下载链接
+func (c *bdwpClient) LocateDownload(fsID int64, cookie, accessToken, userAgent string) ([]string, error) {
+	params := url.Values{}
+	params.Set("method", "locatedownload")
+	params.Set("ver", "4.0")
+	params.Set("fs_id", fmt.Sprintf("%d", fsID))
+	params.Set("path", "/我的资源")
+
+	rawURL := fmt.Sprintf("%s/file?%s", baiduDiskBase, params.Encode())
+	rawURL, headers := withAuth(rawURL, cookie, accessToken, userAgent)
+
+	body, err := c.get(rawURL, headers)
+	if err != nil {
+		return nil, fmt.Errorf("locate download: %w", err)
+	}
+	var resp LocateResp
+	if err := json.Unmarshal(body, &resp); err != nil {
+		return nil, fmt.Errorf("parse locate resp: %w", err)
+	}
+	if resp.Errno != 0 {
+		return nil, fmt.Errorf("locate errno %d", resp.Errno)
+	}
+	urls := make([]string, 0, len(resp.URLs))
+	for _, u := range resp.URLs {
+		if u.URL != "" {
+			urls = append(urls, u.URL)
+		}
+	}
+	return urls, nil
+}
+
+// ─── Delete files ─────────────────────────────────────────────────────────────
+
+// DeleteFiles 删除账号网盘中指定路径的文件（LocateDownload 后清理转存文件，Method A）
+func (c *bdwpClient) DeleteFiles(paths []string, cookie, accessToken, userAgent string) error {
+	if len(paths) == 0 {
+		return nil
+	}
+	fileListJSON, _ := json.Marshal(paths)
+
+	form := url.Values{}
+	form.Set("filelist", string(fileListJSON))
+	form.Set("async", "0")
+	form.Set("onnewver", "1")
+
+	rawURL := fmt.Sprintf("%s/filemanager?opera=delete", baiduAPIBase)
+	rawURL, headers := withAuth(rawURL, cookie, accessToken, userAgent)
+
+	body, err := c.post(rawURL, form, headers)
+	if err != nil {
+		return fmt.Errorf("delete files: %w", err)
+	}
+	var resp struct {
+		Errno int `json:"errno"`
+	}
+	if err := json.Unmarshal(body, &resp); err != nil {
+		return fmt.Errorf("parse delete resp: %w", err)
+	}
+	if resp.Errno != 0 {
+		return fmt.Errorf("delete errno %d", resp.Errno)
 	}
 	return nil
 }
@@ -203,8 +282,7 @@ type BanStatus struct {
 	UserOperateType int    `json:"user_operate_type"`
 }
 
-// CheckBanStatus calls the Baidu APL (anti-piracy-link) API to check whether
-// the account is banned or speed-limited. cid is optional (enterprise accounts).
+// CheckBanStatus 调用百度 APL 接口检查账号是否被封禁/限速
 func (c *bdwpClient) CheckBanStatus(accountType, cookieOrToken, userAgent string, cid int64) (*BanStatus, error) {
 	params := url.Values{}
 	if accountType == "open_platform" {
@@ -219,10 +297,8 @@ func (c *bdwpClient) CheckBanStatus(accountType, cookieOrToken, userAgent string
 		apiURL += "?" + params.Encode()
 	}
 
-	headers := map[string]string{
-		"User-Agent": userAgent,
-	}
-	if accountType == "cookie" || accountType == "enterprise_cookie" {
+	headers := map[string]string{"User-Agent": userAgent}
+	if accountType == "cookie" || accountType == "enterprise_cookie" || accountType == "download_ticket" {
 		headers["Cookie"] = cookieOrToken
 	}
 
@@ -261,17 +337,9 @@ func (c *bdwpClient) CheckBanStatus(accountType, cookieOrToken, userAgent string
 	}, nil
 }
 
-// ─── Enterprise account CID ────────────────────────────────────────────────────
+// ─── Enterprise account CID ───────────────────────────────────────────────────
 
-type EnterpriseCIDResp struct {
-	Errno int    `json:"errno"`
-	CID   int64  `json:"cid"`
-	Name  string `json:"server_filename"`
-}
-
-// GetEnterpriseCID fetches the enterprise drive CID (root folder ID) for the
-// cookie holder. This is used to verify that the CID stored in account_data
-// matches the actual CID of the enterprise account.
+// GetEnterpriseCID 获取企业网盘账号的 CID
 func (c *bdwpClient) GetEnterpriseCID(cookie, userAgent string) (int64, error) {
 	params := url.Values{}
 	params.Set("method", "info")
@@ -299,47 +367,4 @@ func (c *bdwpClient) GetEnterpriseCID(cookie, userAgent string) (int64, error) {
 		return 0, fmt.Errorf("get enterprise cid errno %d", resp.Errno)
 	}
 	return resp.Info.CID, nil
-}
-
-// ─── Locate download ──────────────────────────────────────────────────────────
-
-type LocateResp struct {
-	Errno int `json:"errno"`
-	URLs  []struct {
-		URL string `json:"url"`
-	} `json:"urls"`
-}
-
-// LocateDownload fetches the high-speed download URL for a file
-func (c *bdwpClient) LocateDownload(fsID int64, cookie, userAgent string) ([]string, error) {
-	params := url.Values{}
-	params.Set("method", "locatedownload")
-	params.Set("ver", "4.0")
-	params.Set("fs_id", fmt.Sprintf("%d", fsID))
-	params.Set("path", "/我的资源")
-
-	apiURL := fmt.Sprintf("%s/file?%s", baiduDiskBase, params.Encode())
-	body, err := c.get(apiURL, map[string]string{
-		"Cookie":     cookie,
-		"User-Agent": userAgent,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("locate download: %w", err)
-	}
-
-	var resp LocateResp
-	if err := json.Unmarshal(body, &resp); err != nil {
-		return nil, fmt.Errorf("parse locate resp: %w", err)
-	}
-	if resp.Errno != 0 {
-		return nil, fmt.Errorf("locate errno %d", resp.Errno)
-	}
-
-	urls := make([]string, 0, len(resp.URLs))
-	for _, u := range resp.URLs {
-		if u.URL != "" {
-			urls = append(urls, u.URL)
-		}
-	}
-	return urls, nil
 }
