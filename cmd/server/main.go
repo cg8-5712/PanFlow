@@ -37,12 +37,16 @@ func main() {
 	defer cache.OtterClose()
 	logger.Info("L1 cache (Otter) initialized")
 
-	// 4. 初始化 L2 缓存（Redis）
-	if err := cache.InitRedis(cfg.Redis); err != nil {
-		logger.Warnf("Redis unavailable, L2 cache disabled: %v", err)
+	// 4. 初始化 L2 缓存（Redis，可选）
+	if cfg.Redis.Enable {
+		if err := cache.InitRedis(cfg.Redis); err != nil {
+			logger.Warnf("Redis unavailable, L2 cache disabled: %v", err)
+		} else {
+			defer cache.RedisClose()
+			logger.Info("L2 cache (Redis) initialized")
+		}
 	} else {
-		defer cache.RedisClose()
-		logger.Info("L2 cache (Redis) initialized")
+		logger.Info("L2 cache (Redis) disabled by config")
 	}
 
 	// 5. 初始化数据库（AutoMigrate + seed）

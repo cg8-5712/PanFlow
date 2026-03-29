@@ -18,13 +18,8 @@ const (
 )
 
 // JWTAuth validates the admin Bearer JWT in the Authorization header
-func JWTAuth(jwtSvc *service.JWTService, debug bool) gin.HandlerFunc {
+func JWTAuth(jwtSvc *service.JWTService) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		if debug {
-			c.Next()
-			return
-		}
-
 		tokenStr := bearerToken(c)
 		if tokenStr == "" {
 			handler.Fail(c, http.StatusUnauthorized, 20001, "missing or invalid Authorization header")
@@ -45,16 +40,8 @@ func JWTAuth(jwtSvc *service.JWTService, debug bool) gin.HandlerFunc {
 }
 
 // UserJWTAuth validates the user Bearer JWT and injects token_id / user_type / user_id into context
-func UserJWTAuth(jwtSvc *service.JWTService, debug bool) gin.HandlerFunc {
+func UserJWTAuth(jwtSvc *service.JWTService) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		if debug {
-			// inject guest defaults so downstream handlers don't panic
-			c.Set(CtxTokenID, uint(1))
-			c.Set(CtxUserType, "guest")
-			c.Next()
-			return
-		}
-
 		tokenStr := bearerToken(c)
 		if tokenStr == "" {
 			handler.Fail(c, http.StatusUnauthorized, 20003, "login required")

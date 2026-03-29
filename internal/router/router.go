@@ -58,7 +58,7 @@ func Setup(
 
 	// ── User routes（公开，仅 IdentifierFilter）────────────────────────────────
 	public := api.Group("")
-	public.Use(middleware.IdentifierFilter(blackListRepo, cfg.Panflow.Debug))
+	public.Use(middleware.IdentifierFilter(blackListRepo))
 	{
 		public.GET("/user/parse/config", parseH.GetConfig)
 		public.GET("/user/parse/limit", parseH.GetLimit)
@@ -67,8 +67,8 @@ func Setup(
 
 	// ── User routes（需登录，IdentifierFilter + UserJWTAuth）─────────────────
 	auth := api.Group("")
-	auth.Use(middleware.IdentifierFilter(blackListRepo, cfg.Panflow.Debug))
-	auth.Use(middleware.UserJWTAuth(jwtSvc, cfg.Panflow.Debug))
+	auth.Use(middleware.IdentifierFilter(blackListRepo))
+	auth.Use(middleware.UserJWTAuth(jwtSvc))
 	{
 		auth.POST("/user/parse/get_file_list", parseH.GetFileList)
 		auth.POST("/user/parse/get_download_links", parseH.GetDownloadLinks)
@@ -80,7 +80,7 @@ func Setup(
 
 	// ── Admin routes (JWT protected) ──────────────────────────────────────────
 	admin := api.Group("/admin")
-	admin.Use(middleware.JWTAuth(jwtSvc, cfg.Panflow.Debug))
+	admin.Use(middleware.JWTAuth(jwtSvc))
 	{
 		admin.GET("/account", accountH.List)
 		admin.POST("/account", accountH.Create)

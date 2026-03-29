@@ -79,7 +79,6 @@ func TestPanflowConfig_Structure(t *testing.T) {
 		JWTSecret:      "secret",
 		JWTExpireHours: 2,
 		JWTRefreshDays: 7,
-		Debug:          false,
 		GuestUserAgent: "netdisk;P2SP;3.0.20.138",
 		ProxyHTTP:      "",
 	}
@@ -175,7 +174,6 @@ func TestPanflowConfig_Defaults(t *testing.T) {
 	cfg := config.PanflowConfig{
 		JWTExpireHours: 2,
 		JWTRefreshDays: 7,
-		Debug:          false,
 	}
 
 	if cfg.JWTExpireHours != 2 {
@@ -183,8 +181,5 @@ func TestPanflowConfig_Defaults(t *testing.T) {
 	}
 	if cfg.JWTRefreshDays != 7 {
 		t.Fatal("default jwt_refresh_days should be 7")
-	}
-	if cfg.Debug {
-		t.Fatal("default debug should be false")
 	}
 }

@@ -22,6 +22,7 @@ type DatabaseConfig struct {
 }
 
 type RedisConfig struct {
+	Enable   bool
 	Host     string
 	Port     string
 	Password string
@@ -37,7 +38,6 @@ type PanflowConfig struct {
 	JWTSecret       string `mapstructure:"jwt_secret"`
 	JWTExpireHours  int    `mapstructure:"jwt_expire_hours"`
 	JWTRefreshDays  int    `mapstructure:"jwt_refresh_days"`
-	Debug          bool   `mapstructure:"debug"`
 	GuestUserAgent string `mapstructure:"guest_user_agent"`
 	ProxyHTTP      string `mapstructure:"proxy_http"`
 }
@@ -64,6 +64,7 @@ func Load() (*Config, error) {
 	viper.SetDefault("database.host", "127.0.0.1")
 	viper.SetDefault("database.port", "3306")
 	viper.SetDefault("database.name", "panflow")
+	viper.SetDefault("redis.enable", true)
 	viper.SetDefault("redis.host", "127.0.0.1")
 	viper.SetDefault("redis.port", "6379")
 	viper.SetDefault("redis.db", 0)

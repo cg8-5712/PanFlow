@@ -8,10 +8,11 @@ database:
   host: "127.0.0.1"
   port: "3306"
   user: "root"
-  password: ""
+  password: "your_password"
   name: "panflow"  # sqlite 时填文件路径，如 "panflow.db"
 
 redis:
+  enable: true      # true | false，关闭后 refresh token 等功能不可用
   host: "127.0.0.1"
   port: "6379"
   password: ""
@@ -21,10 +22,9 @@ log:
   level: "info" # debug | info | warn | error
 
 panflow:
-  admin_password: ""
-  jwt_secret: "panflow-change-me"
+  admin_password: "your_admin_password"
+  jwt_secret: "change-me-to-a-random-string"
   jwt_expire_hours: 2    # access token 有效期（小时）
   jwt_refresh_days: 7    # refresh token 有效期（天）
-  debug: false
   guest_user_agent: "netdisk;P2SP;3.0.20.138"
   proxy_http: "" # 可选，格式: http://host:port

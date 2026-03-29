@@ -12,13 +12,8 @@ import (
 )
 
 // IdentifierFilter blocks blacklisted IPs and browser fingerprints
-func IdentifierFilter(blackListRepo *repository.BlackListRepository, debug bool) gin.HandlerFunc {
+func IdentifierFilter(blackListRepo *repository.BlackListRepository) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		if debug {
-			c.Next()
-			return
-		}
-
 		ip := c.ClientIP()
 
 		// Check IP blacklist (L2 cache first)

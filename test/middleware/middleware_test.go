@@ -58,7 +58,7 @@ func newJWTSvc() *service.JWTService {
 
 func TestJWTAuth_NoHeader(t *testing.T) {
 	svc := newJWTSvc()
-	r := newRouter(middleware.JWTAuth(svc, false))
+	r := newRouter(middleware.JWTAuth(svc))
 	r.GET("/admin", func(c *gin.Context) { c.Status(200) })
 
 	w := httptest.NewRecorder()
@@ -72,7 +72,7 @@ func TestJWTAuth_NoHeader(t *testing.T) {
 
 func TestJWTAuth_InvalidToken(t *testing.T) {
 	svc := newJWTSvc()
-	r := newRouter(middleware.JWTAuth(svc, false))
+	r := newRouter(middleware.JWTAuth(svc))
 	r.GET("/admin", func(c *gin.Context) { c.Status(200) })
 
 	w := httptest.NewRecorder()
@@ -92,7 +92,7 @@ func TestJWTAuth_ValidToken(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	r := newRouter(middleware.JWTAuth(svc, false))
+	r := newRouter(middleware.JWTAuth(svc))
 	r.GET("/admin", func(c *gin.Context) { c.Status(200) })
 
 	w := httptest.NewRecorder()
@@ -105,27 +105,13 @@ func TestJWTAuth_ValidToken(t *testing.T) {
 	}
 }
 
-func TestJWTAuth_DebugMode(t *testing.T) {
-	svc := newJWTSvc()
-	r := newRouter(middleware.JWTAuth(svc, true))
-	r.GET("/admin", func(c *gin.Context) { c.Status(200) })
-
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/admin", nil) // no token
-	r.ServeHTTP(w, req)
-
-	if w.Code != 200 {
-		t.Fatalf("expected 200 in debug mode, got %d", w.Code)
-	}
-}
-
 func TestJWTAuth_WrongSecretRejected(t *testing.T) {
 	issuer := service.NewJWTService("secret-A", 1)
 	verifier := service.NewJWTService("secret-B", 1)
 
 	tokenStr, _, _ := issuer.Issue()
 
-	r := newRouter(middleware.JWTAuth(verifier, false))
+	r := newRouter(middleware.JWTAuth(verifier))
 	r.GET("/admin", func(c *gin.Context) { c.Status(200) })
 
 	w := httptest.NewRecorder()
@@ -135,19 +121,6 @@ func TestJWTAuth_WrongSecretRejected(t *testing.T) {
 
 	if w.Code != 401 {
 		t.Fatalf("expected 401 for mismatched secret, got %d", w.Code)
-	}
-}
-
-func TestIdentifierFilter_DebugMode(t *testing.T) {
-	r := newRouter(identifierFilterDebug())
-	r.GET("/user", func(c *gin.Context) { c.Status(200) })
-
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/user", nil)
-	r.ServeHTTP(w, req)
-
-	if w.Code != 200 {
-		t.Fatalf("expected 200 in debug mode, got %d", w.Code)
 	}
 }
 
@@ -162,12 +135,6 @@ func corsMiddleware() gin.HandlerFunc {
 			c.AbortWithStatus(204)
 			return
 		}
-		c.Next()
-	}
-}
-
-func identifierFilterDebug() gin.HandlerFunc {
-	return func(c *gin.Context) {
 		c.Next()
 	}
 }
