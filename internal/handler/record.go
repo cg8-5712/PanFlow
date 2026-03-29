@@ -36,13 +36,12 @@ func (h *RecordHandler) List(c *gin.Context) {
 	Success(c, gin.H{"total": total, "list": records})
 }
 
-// GET /admin/record/history  (alias with token filter)
+// GET /admin/record/history
 func (h *RecordHandler) History(c *gin.Context) {
 	var q struct {
-		Page    int  `form:"page"`
-		Limit   int  `form:"limit"`
-		TokenID uint `form:"token_id"`
-		UserID  uint `form:"user_id"`
+		Page   int  `form:"page"`
+		Limit  int  `form:"limit"`
+		UserID uint `form:"user_id"`
 	}
 	_ = c.ShouldBindQuery(&q)
 	if q.Page < 1 {
@@ -56,16 +55,6 @@ func (h *RecordHandler) History(c *gin.Context) {
 
 	if q.UserID > 0 {
 		records, total, err := h.repo.ListByUserID(q.UserID, offset, q.Limit)
-		if err != nil {
-			FailInternal(c, err.Error())
-			return
-		}
-		Success(c, gin.H{"total": total, "list": records})
-		return
-	}
-
-	if q.TokenID > 0 {
-		records, total, err := h.repo.ListByTokenID(q.TokenID, offset, q.Limit)
 		if err != nil {
 			FailInternal(c, err.Error())
 			return
@@ -96,11 +85,10 @@ func (h *RecordHandler) UserHistory(c *gin.Context) {
 		q.Limit = 10
 	}
 
-	// token_id from context (set by token middleware later)
-	tokenID, _ := c.Get("token_id")
-	tid, _ := tokenID.(uint)
+	userID, _ := c.Get("jwt_user_id")
+	uid, _ := userID.(uint)
 
-	records, total, err := h.repo.ListByTokenID(tid, (q.Page-1)*q.Limit, q.Limit)
+	records, total, err := h.repo.ListByUserID(uid, (q.Page-1)*q.Limit, q.Limit)
 	if err != nil {
 		FailInternal(c, err.Error())
 		return

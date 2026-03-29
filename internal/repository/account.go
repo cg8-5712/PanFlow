@@ -100,7 +100,7 @@ func (r *AccountRepository) ListWithTodayStats(offset, limit int) ([]AccountWith
 			COALESCE(SUM(CASE WHEN DATE(r.created_at) = ? THEN 1 ELSE 0 END), 0) AS today_count,
 			COALESCE(SUM(CASE WHEN DATE(r.created_at) = ? THEN fl.size ELSE 0 END), 0) AS today_size`,
 			today, today).
-		Joins("LEFT JOIN records r ON r.account_id = accounts.id AND r.deleted_at IS NULL").
+		Joins("LEFT JOIN records r ON r.account_id = accounts.id").
 		Joins("LEFT JOIN file_lists fl ON fl.id = r.fs_id").
 		Group("accounts.id").
 		Offset(offset).Limit(limit).

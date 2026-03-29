@@ -24,7 +24,7 @@ func (r *RecordRepository) List(offset, limit int) ([]model.Record, int64, error
 	if err := r.db.Model(&model.Record{}).Count(&total).Error; err != nil {
 		return nil, 0, err
 	}
-	err := r.db.Preload("Token").Preload("Account").Preload("User").
+	err := r.db.Preload("Account").Preload("User").
 		Order("id DESC").Offset(offset).Limit(limit).Find(&records).Error
 	return records, total, err
 }
@@ -36,17 +36,6 @@ func (r *RecordRepository) ListByUserID(userID uint, offset, limit int) ([]model
 		return nil, 0, err
 	}
 	err := r.db.Where("user_id = ?", userID).
-		Order("id DESC").Offset(offset).Limit(limit).Find(&records).Error
-	return records, total, err
-}
-
-func (r *RecordRepository) ListByTokenID(tokenID uint, offset, limit int) ([]model.Record, int64, error) {
-	var records []model.Record
-	var total int64
-	if err := r.db.Model(&model.Record{}).Where("token_id = ?", tokenID).Count(&total).Error; err != nil {
-		return nil, 0, err
-	}
-	err := r.db.Where("token_id = ?", tokenID).
 		Order("id DESC").Offset(offset).Limit(limit).Find(&records).Error
 	return records, total, err
 }
