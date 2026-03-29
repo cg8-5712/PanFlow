@@ -3,6 +3,8 @@ package handler
 import (
 	"net/http"
 
+	"panflow/pkg/logger"
+
 	"github.com/gin-gonic/gin"
 )
 
@@ -60,7 +62,8 @@ func FailNotFound(c *gin.Context, code int, msg string) {
 	Fail(c, http.StatusNotFound, code, msg)
 }
 
-// FailInternal returns a 500 response
+// FailInternal returns a 500 response and logs the error
 func FailInternal(c *gin.Context, msg string) {
+	logger.Errorf("[%s %s] internal error: %s", c.Request.Method, c.Request.URL.Path, msg)
 	Fail(c, http.StatusInternalServerError, 50000, msg)
 }

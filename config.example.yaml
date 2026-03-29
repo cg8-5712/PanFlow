@@ -22,9 +22,10 @@ log:
   level: "info" # debug | info | warn | error
 
 panflow:
-  admin_password: "your_admin_password"
+  admin_password: ""
   jwt_secret: "change-me-to-a-random-string"
   jwt_expire_hours: 2    # access token 有效期（小时）
   jwt_refresh_days: 7    # refresh token 有效期（天）
+  dev: false             # 生产环境请关闭
   guest_user_agent: "netdisk;P2SP;3.0.20.138"
   proxy_http: "" # 可选，格式: http://host:port

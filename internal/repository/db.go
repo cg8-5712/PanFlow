@@ -1,11 +1,14 @@
 package repository
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"fmt"
 
 	"panflow/internal/config"
 	"panflow/internal/model"
 
+	"golang.org/x/crypto/bcrypt"
 	"gorm.io/driver/mysql"
 	"gorm.io/driver/postgres"
 	"gorm.io/driver/sqlite"
@@ -14,8 +17,7 @@ import (
 )
 
 // NewDB opens a database connection and runs AutoMigrate.
-// Supported drivers: mysql (default), postgres, sqlite.
-func NewDB(cfg config.DatabaseConfig) (*gorm.DB, error) {
+func NewDB(cfg config.DatabaseConfig, dev bool) (*gorm.DB, error) {
 	var dialector gorm.Dialector
 	switch cfg.Driver {
 	case "postgres":
@@ -23,7 +25,7 @@ func NewDB(cfg config.DatabaseConfig) (*gorm.DB, error) {
 			cfg.Host, cfg.Port, cfg.User, cfg.Password, cfg.Name)
 		dialector = postgres.Open(dsn)
 	case "sqlite":
-		dialector = sqlite.Open(cfg.Name) // Name is the file path, e.g. "panflow.db"
+		dialector = sqlite.Open(cfg.Name)
 	default: // mysql
 		dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?charset=utf8mb4&parseTime=True&loc=Local",
 			cfg.User, cfg.Password, cfg.Host, cfg.Port, cfg.Name)
@@ -51,12 +53,18 @@ func NewDB(cfg config.DatabaseConfig) (*gorm.DB, error) {
 		return nil, fmt.Errorf("migration failed: %w", err)
 	}
 
-	if err := seedGuestToken(db); err != nil {
-		return nil, fmt.Errorf("seed guest token failed: %w", err)
-	}
-
 	if err := seedDefaultConfigs(db); err != nil {
 		return nil, fmt.Errorf("seed default configs failed: %w", err)
+	}
+
+	if dev {
+		if err := seedDevData(db); err != nil {
+			return nil, fmt.Errorf("seed dev data failed: %w", err)
+		}
+	} else {
+		if err := seedAdminUser(db, ""); err != nil {
+			return nil, fmt.Errorf("seed admin user failed: %w", err)
+		}
 	}
 
 	return db, nil
@@ -74,26 +82,77 @@ func autoMigrate(db *gorm.DB) error {
 	)
 }
 
-// seedGuestToken ensures a guest token (id=1) always exists
-func seedGuestToken(db *gorm.DB) error {
-	var t model.Token
-	err := db.First(&t, 1).Error
-	if err == nil {
+// seedAdminUser 确保 admin 用户存在，password 为空时跳过创建（生产环境由运维手动创建）
+func seedAdminUser(db *gorm.DB, password string) error {
+	var u model.User
+	if err := db.Where("username = ?", "admin").First(&u).Error; err == nil {
 		return nil // already exists
 	}
-	guest := model.Token{
-		Token:         "guest",
-		TokenType:     "daily",
-		UserType:      "guest",
-		Count:         10,
-		Size:          10 * 1024 * 1024 * 1024, // 10 GB
-		Day:           1,
-		CanUseIPCount: 99999,
-		IP:            model.JSONSlice{},
-		Switch:        true,
-		Reason:        "",
+	if password == "" {
+		return nil // 生产环境不自动创建
 	}
-	return db.Create(&guest).Error
+	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		return err
+	}
+	return db.Create(&model.User{
+		Username: "admin",
+		Password: string(hash),
+		UserType: "admin",
+	}).Error
+}
+
+// seedDevData 开发模式：随机 admin 密码 + 测试用户数据
+func seedDevData(db *gorm.DB) error {
+	// 随机生成 admin 密码
+	b := make([]byte, 8)
+	_, _ = rand.Read(b)
+	adminPwd := hex.EncodeToString(b)
+
+	hash, err := bcrypt.GenerateFromPassword([]byte(adminPwd), bcrypt.DefaultCost)
+	if err != nil {
+		return err
+	}
+
+	var adminUser model.User
+	if db.Where("username = ?", "admin").First(&adminUser).Error != nil {
+		if err := db.Create(&model.User{
+			Username: "admin",
+			Password: string(hash),
+			UserType: "admin",
+		}).Error; err != nil {
+			return err
+		}
+		fmt.Printf("\n====================================\n")
+		fmt.Printf(" DEV MODE — Admin credentials:\n")
+		fmt.Printf(" username: admin\n")
+		fmt.Printf(" password: %s\n", adminPwd)
+		fmt.Printf("====================================\n\n")
+	}
+
+	// Seed 测试用户
+	testUsers := []struct {
+		username string
+		password string
+		userType string
+	}{
+		{"test_guest", "guest123", "guest"},
+		{"test_vip", "vip123", "vip"},
+	}
+	for _, u := range testUsers {
+		var existing model.User
+		if db.Where("username = ?", u.username).First(&existing).Error == nil {
+			continue
+		}
+		h, _ := bcrypt.GenerateFromPassword([]byte(u.password), bcrypt.DefaultCost)
+		db.Create(&model.User{
+			Username: u.username,
+			Password: string(h),
+			UserType: u.userType,
+		})
+	}
+
+	return seedDefaultConfigs(db)
 }
 
 // seedDefaultConfigs ensures default configuration entries exist
@@ -107,9 +166,8 @@ func seedDefaultConfigs(db *gorm.DB) error {
 
 	for _, cfg := range defaults {
 		var existing model.Config
-		err := db.Where("key = ?", cfg.Key).First(&existing).Error
-		if err == nil {
-			continue // already exists
+		if db.Where("`key` = ?", cfg.Key).First(&existing).Error == nil {
+			continue
 		}
 		if err := db.Create(&cfg).Error; err != nil {
 			return err

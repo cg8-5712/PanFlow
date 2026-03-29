@@ -50,7 +50,7 @@ func main() {
 	}
 
 	// 5. 初始化数据库（AutoMigrate + seed）
-	db, err := repository.NewDB(cfg.Database)
+	db, err := repository.NewDB(cfg.Database, cfg.Panflow.Dev)
 	if err != nil {
 		logger.Fatalf("Failed to init database: %v", err)
 	}

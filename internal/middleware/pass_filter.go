@@ -65,6 +65,19 @@ func UserJWTAuth(jwtSvc *service.JWTService) gin.HandlerFunc {
 	}
 }
 
+// AdminOnly checks that the JWT user_type is admin
+func AdminOnly() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		userType, _ := c.Get(CtxUserType)
+		if userType != "admin" {
+			handler.Fail(c, http.StatusForbidden, 20002, "admin only")
+			c.Abort()
+			return
+		}
+		c.Next()
+	}
+}
+
 // bearerToken extracts the Bearer token from Authorization header
 func bearerToken(c *gin.Context) string {
 	auth := c.GetHeader("Authorization")

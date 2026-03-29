@@ -44,14 +44,13 @@ func Setup(
 	recordH := handler.NewRecordHandler(recordRepo)
 	blackListH := handler.NewBlackListHandler(blackListRepo)
 	parseH := handler.NewParseHandler(parseSvc, configSvc)
-	authH := handler.NewAuthHandler(jwtSvc, userRepo, cfg.Panflow.AdminPassword, cfg.Panflow.JWTRefreshDays)
+	authH := handler.NewAuthHandler(jwtSvc, userRepo, cfg.Panflow.JWTRefreshDays)
 
 	r.Use(middleware.Cors())
 
 	api := r.Group("/api/v1")
 
 	// ── Public routes ─────────────────────────────────────────────────────────
-	api.POST("/admin/login", authH.AdminLogin)
 	api.POST("/user/login", authH.UserLogin)
 	api.POST("/user/refresh", authH.RefreshToken)
 	api.POST("/user/logout", authH.Logout)
@@ -78,9 +77,10 @@ func Setup(
 		auth.PATCH("/user/password", userH.ChangePassword)
 	}
 
-	// ── Admin routes (JWT protected) ──────────────────────────────────────────
+	// ── Admin routes (UserJWT + AdminOnly) ──────────────────────────────────
 	admin := api.Group("/admin")
-	admin.Use(middleware.JWTAuth(jwtSvc))
+	admin.Use(middleware.UserJWTAuth(jwtSvc))
+	admin.Use(middleware.AdminOnly())
 	{
 		admin.GET("/account", accountH.List)
 		admin.POST("/account", accountH.Create)
