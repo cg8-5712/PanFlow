@@ -93,7 +93,6 @@ func TestParseRequest_Validation(t *testing.T) {
 		Pwd:      "test_pwd",
 		FsIDs:    []int64{123, 456},
 		ClientIP: "1.2.3.4",
-		TokenID:  1,
 		UserType: "guest",
 	}
 

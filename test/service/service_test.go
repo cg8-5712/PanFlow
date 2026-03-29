@@ -9,13 +9,6 @@ import (
 	"panflow/internal/service"
 )
 
-func TestTokenCacheKey(t *testing.T) {
-	key := service.TokenCacheKey("mytoken")
-	if key != "token:mytoken" {
-		t.Fatalf("unexpected key: %s", key)
-	}
-}
-
 func TestUserCacheKey(t *testing.T) {
 	key := service.UserCacheKey(42)
 	if key != "user:42" {
@@ -39,8 +32,6 @@ func TestBlacklistCacheKey(t *testing.T) {
 
 func TestCacheKeyUniqueness(t *testing.T) {
 	keys := []string{
-		service.TokenCacheKey("tok1"),
-		service.TokenCacheKey("tok2"),
 		service.UserCacheKey(1),
 		service.UserCacheKey(2),
 		service.ConfigCacheKey("key1"),
@@ -53,37 +44,6 @@ func TestCacheKeyUniqueness(t *testing.T) {
 			t.Fatalf("duplicate cache key: %s", k)
 		}
 		seen[k] = true
-	}
-}
-
-func TestTokenModel_Disabled(t *testing.T) {
-	tok := &model.Token{Switch: false}
-	if tok.Switch {
-		t.Fatal("expected disabled")
-	}
-}
-
-func TestTokenModel_Expired(t *testing.T) {
-	past := time.Now().Add(-time.Hour)
-	tok := &model.Token{Switch: true, ExpiresAt: &past}
-	if tok.ExpiresAt == nil || !tok.ExpiresAt.Before(time.Now()) {
-		t.Fatal("expected expired")
-	}
-}
-
-func TestTokenModel_CountExceeded(t *testing.T) {
-	tok := &model.Token{Switch: true, Count: 5, UsedCount: 5}
-	exceeded := tok.Count > 0 && tok.UsedCount >= tok.Count
-	if !exceeded {
-		t.Fatal("expected count exceeded")
-	}
-}
-
-func TestTokenModel_CountOK(t *testing.T) {
-	tok := &model.Token{Switch: true, Count: 100, UsedCount: 5}
-	exceeded := tok.Count > 0 && tok.UsedCount >= tok.Count
-	if exceeded {
-		t.Fatal("should not be exceeded")
 	}
 }
 
@@ -117,10 +77,6 @@ func TestUserModel_AdminUnlimited(t *testing.T) {
 	}
 }
 
-func TestNewTokenService(t *testing.T) {
-	_ = service.NewTokenService(nil)
-}
-
 func TestNewUserService(t *testing.T) {
 	_ = service.NewUserService(nil)
 }
@@ -137,7 +93,6 @@ func TestNewRecordService(t *testing.T) {
 	_ = service.NewRecordService(nil)
 }
 
-
 func TestCacheGetMiss(t *testing.T) {
 	ctx := context.Background()
 	var dest struct{ Val string }
@@ -153,4 +108,3 @@ func TestCacheSetL1Only_NoPanic(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
-

@@ -73,7 +73,6 @@ func NewDB(cfg config.DatabaseConfig, dev bool) (*gorm.DB, error) {
 func autoMigrate(db *gorm.DB) error {
 	return db.AutoMigrate(
 		&model.Account{},
-		&model.Token{},
 		&model.User{},
 		&model.Config{},
 		&model.FileList{},

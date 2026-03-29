@@ -148,13 +148,13 @@ func TestJWTService_EmptyToken(t *testing.T) {
 func TestJWTService_AdminAndUser(t *testing.T) {
 	svc := service.NewJWTService("secret", 2)
 
-	// 签发管理员 token
+	// 签发管理员 token（Issue 返回 AdminClaims，VerifyUser 解析为 UserClaims 会失败）
 	adminToken, _, _ := svc.Issue()
 
-	// 用用户验证器验证管理员 token 应该失败
+	// 用用户验证器验证管理员 token：AdminClaims 无 UserClaims 字段，解析会失败
 	_, err := svc.VerifyUser(adminToken)
 	if err == nil {
-		t.Fatal("admin token should not pass user verification")
+		t.Fatal("admin token (AdminClaims) should not pass user verification")
 	}
 
 	// 签发用户 token

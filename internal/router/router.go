@@ -15,7 +15,6 @@ func Setup(
 	r *gin.Engine,
 	cfg *config.Config,
 	accountRepo *repository.AccountRepository,
-	tokenRepo *repository.TokenRepository,
 	userRepo *repository.UserRepository,
 	configRepo *repository.ConfigRepository,
 	recordRepo *repository.RecordRepository,
@@ -23,14 +22,13 @@ func Setup(
 	blackListRepo *repository.BlackListRepository,
 ) {
 	// Services
-	tokenSvc := service.NewTokenService(tokenRepo)
 	userSvc := service.NewUserService(userRepo)
 	accountSvc := service.NewAccountService(accountRepo, cfg.Panflow.ProxyHTTP)
 	recordSvc := service.NewRecordService(recordRepo)
 	configSvc := service.NewConfigService(configRepo)
 	jwtSvc := service.NewJWTService(cfg.Panflow.JWTSecret, cfg.Panflow.JWTExpireHours)
 	parseSvc := service.NewParseService(
-		tokenSvc, userSvc, accountSvc, recordSvc, configSvc,
+		userSvc, accountSvc, recordSvc, configSvc,
 		fileListRepo,
 		cfg.Panflow.ProxyHTTP,
 		cfg.Panflow.GuestUserAgent,
@@ -38,7 +36,6 @@ func Setup(
 
 	// Handlers
 	accountH := handler.NewAccountHandler(accountRepo, accountSvc)
-	tokenH := handler.NewTokenHandler(tokenRepo)
 	userH := handler.NewUserHandler(userRepo)
 	configH := handler.NewConfigHandler(configRepo)
 	recordH := handler.NewRecordHandler(recordRepo)
@@ -89,11 +86,6 @@ func Setup(
 		admin.POST("/account/update_data", accountH.UpdateData)
 		admin.POST("/account/check_ban_status", accountH.CheckBanStatus)
 		admin.POST("/account/check_enterprise_cid", accountH.CheckEnterpriseCID)
-
-		admin.GET("/token", tokenH.List)
-		admin.POST("/token", tokenH.Create)
-		admin.PATCH("/token", tokenH.Update)
-		admin.DELETE("/token", tokenH.Delete)
 
 		admin.GET("/user", userH.List)
 		admin.POST("/user", userH.Create)

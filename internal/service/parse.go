@@ -17,7 +17,7 @@ var (
 )
 
 // ParseRequest 是解析操作的输入。
-// TokenID 和 UserType 来自 JWT 上下文，不在请求体中传递明文 token。
+// UserType 和 UserID 来自 JWT 上下文。
 type ParseRequest struct {
 	Surl        string
 	Pwd         string
@@ -25,9 +25,8 @@ type ParseRequest struct {
 	ClientIP    string
 	Fingerprint string
 	UA          string
-	TokenID     uint   // from JWT claim
 	UserType    string // from JWT claim: guest | vip | svip | admin
-	UserID      *uint  // from JWT claim (optional, for svip)
+	UserID      *uint  // from JWT claim (optional)
 }
 
 // ParseResult 是解析操作的输出
@@ -39,15 +38,14 @@ type ParseResult struct {
 
 // parseCreds 封装各账号类型的认证凭据
 type parseCreds struct {
-	transferCookie string // 用于 GetShareInfo / GetFileList / TransferFiles
-	locateCookie   string // 用于 LocateDownload（download_ticket 时与 transferCookie 不同）
-	accessToken    string // open_platform 专用
+	transferCookie string
+	locateCookie   string
+	accessToken    string
 	ua             string
 }
 
 // ParseService 编排完整解析流程
 type ParseService struct {
-	tokenSvc   *TokenService
 	userSvc    *UserService
 	accountSvc *AccountService
 	recordSvc  *RecordService
@@ -58,7 +56,6 @@ type ParseService struct {
 }
 
 func NewParseService(
-	tokenSvc *TokenService,
 	userSvc *UserService,
 	accountSvc *AccountService,
 	recordSvc *RecordService,
@@ -68,7 +65,6 @@ func NewParseService(
 	userAgent string,
 ) *ParseService {
 	return &ParseService{
-		tokenSvc:   tokenSvc,
 		userSvc:    userSvc,
 		accountSvc: accountSvc,
 		recordSvc:  recordSvc,
@@ -86,40 +82,35 @@ func (s *ParseService) Parse(ctx context.Context, req *ParseRequest) ([]*ParseRe
 	maxSize := int64(s.configSvc.GetInt(ctx, "max_single_filesize", 0))
 	maxTotal := int64(s.configSvc.GetInt(ctx, "max_all_filesize", 0))
 
-	// 2. 校验 token 配额（通过 JWT 已认证，直接按 ID 查）
-	token, err := s.tokenSvc.ValidateByID(ctx, req.TokenID, req.ClientIP)
-	if err != nil {
-		return nil, fmt.Errorf("token: %w", err)
-	}
-
-	// 3. 若有关联用户则校验用户配额
+	// 2. 校验用户配额
 	var user *model.User
 	if req.UserID != nil {
+		var err error
 		user, err = s.userSvc.CheckQuota(ctx, *req.UserID)
 		if err != nil {
 			return nil, fmt.Errorf("user: %w", err)
 		}
 	}
 
-	// 4. 选取账号
+	// 3. 选取账号
 	account, err := s.accountSvc.PickForUser(ctx, user)
 	if err != nil {
 		return nil, err
 	}
 
-	// 5. 按账号类型提取认证凭据
+	// 4. 按账号类型提取认证凭据
 	creds := s.extractCreds(account)
 	if creds.ua == "" {
 		creds.ua = s.userAgent
 	}
 
-	// 6. 获取分享链接元数据
+	// 5. 获取分享链接元数据
 	shareInfo, err := s.client.GetShareInfo(req.Surl, req.Pwd, creds.transferCookie, creds.accessToken, creds.ua)
 	if err != nil {
 		return nil, fmt.Errorf("share info: %w", err)
 	}
 
-	// 7. 获取文件列表以解析文件大小
+	// 6. 获取文件列表以解析文件大小
 	fileListResp, err := s.client.GetFileList(req.Surl, req.Pwd, creds.transferCookie, creds.accessToken, creds.ua,
 		shareInfo.ShareID, shareInfo.UK, shareInfo.BDSToken)
 	if err != nil {
@@ -132,7 +123,7 @@ func (s *ParseService) Parse(ctx context.Context, req *ParseRequest) ([]*ParseRe
 		fileMap[f.FsID] = f
 	}
 
-	// 8. 校验文件大小
+	// 7. 校验文件大小
 	var totalSize int64
 	for _, fsID := range req.FsIDs {
 		f, ok := fileMap[fsID]
@@ -151,14 +142,14 @@ func (s *ParseService) Parse(ctx context.Context, req *ParseRequest) ([]*ParseRe
 		return nil, ErrTotalSizeTooLarge
 	}
 
-	// 9. 转存文件到账号「我的资源」
+	// 8. 转存文件到账号「我的资源」
 	if err := s.client.TransferFiles(req.Surl, req.Pwd, req.FsIDs,
 		shareInfo.ShareID, shareInfo.UK, shareInfo.BDSToken,
 		creds.transferCookie, creds.accessToken, creds.ua); err != nil {
 		return nil, fmt.Errorf("transfer: %w", err)
 	}
 
-	// 10. 获取高速下载链接，并收集转存路径用于后续清理
+	// 9. 获取高速下载链接
 	var results []*ParseResult
 	var transferredPaths []string
 	for _, fsID := range req.FsIDs {
@@ -190,18 +181,16 @@ func (s *ParseService) Parse(ctx context.Context, req *ParseRequest) ([]*ParseRe
 		return nil, ErrNoDownloadURL
 	}
 
-	// 11. Method A：LocateDownload 完成后立即删除转存文件
-	// CDN 链接已独立于源文件，删除不影响下载
+	// 10. 删除转存文件（CDN 链接已独立于源文件）
 	_ = s.client.DeleteFiles(transferredPaths, creds.transferCookie, creds.accessToken, creds.ua)
 
-	// 12. 记录用量
-	_ = s.tokenSvc.RecordUsage(ctx, token.ID, totalSize)
+	// 11. 记录用量
 	_ = s.accountSvc.RecordUsage(ctx, account.ID, totalSize)
 	if user != nil {
 		_ = s.userSvc.RecordUsage(ctx, user.ID, user.UserType)
 	}
 
-	// 13. 保存解析记录
+	// 12. 保存解析记录
 	urlStrs := make([]string, 0, len(results))
 	for _, r := range results {
 		urlStrs = append(urlStrs, r.URLs...)
@@ -210,7 +199,6 @@ func (s *ParseService) Parse(ctx context.Context, req *ParseRequest) ([]*ParseRe
 		IP:          req.ClientIP,
 		Fingerprint: req.Fingerprint,
 		UA:          req.UA,
-		TokenID:     token.ID,
 		AccountID:   account.ID,
 		URLs:        model.JSONSlice(urlStrs),
 	}
@@ -237,7 +225,7 @@ func (s *ParseService) extractCreds(account *model.Account) parseCreds {
 
 	case "download_ticket":
 		creds.transferCookie, _ = data["save_cookie"].(string)
-		creds.locateCookie, _ = data["download_cookie"].(string)
+		creds.locateCookie, _ =		data["download_cookie"].(string)
 
 	case "enterprise_cookie":
 		creds.transferCookie, _ = data["cookie"].(string)

@@ -58,7 +58,6 @@ func main() {
 
 	// 6. 初始化各 Repository
 	accountRepo := repository.NewAccountRepository(db)
-	tokenRepo := repository.NewTokenRepository(db)
 	userRepo := repository.NewUserRepository(db)
 	configRepo := repository.NewConfigRepository(db)
 	recordRepo := repository.NewRecordRepository(db)
@@ -79,7 +78,7 @@ func main() {
 	})
 
 	// 10. 注册路由
-	router.Setup(r, cfg, accountRepo, tokenRepo, userRepo, configRepo, recordRepo, fileListRepo, blackListRepo)
+	router.Setup(r, cfg, accountRepo, userRepo, configRepo, recordRepo, fileListRepo, blackListRepo)
 
 	// 11. 启动服务器
 	addr := fmt.Sprintf("%s:%s", cfg.Server.Host, cfg.Server.Port)

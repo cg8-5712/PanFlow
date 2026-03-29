@@ -115,7 +115,6 @@ func TestRecord_Structure(t *testing.T) {
 		FsID:        100,
 		URLs:        model.JSONSlice{"https://cdn1.example.com/file"},
 		UA:          "Mozilla/5.0",
-		TokenID:     1,
 		AccountID:   1,
 		UserID:      &userID,
 	}

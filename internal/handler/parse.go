@@ -71,12 +71,10 @@ func (h *ParseHandler) GetDownloadLinks(c *gin.Context) {
 	}
 
 	// Identity injected by UserJWTAuth middleware
-	tokenID, _ := c.Get("jwt_token_id")
 	userType, _ := c.Get("jwt_user_type")
 	clientIP, _ := c.Get("client_ip")
 	fingerprint, _ := c.Get("fingerprint")
 
-	tid, _ := tokenID.(uint)
 	ut, _ := userType.(string)
 	ip, _ := clientIP.(string)
 	fp, _ := fingerprint.(string)
@@ -95,7 +93,6 @@ func (h *ParseHandler) GetDownloadLinks(c *gin.Context) {
 		ClientIP:    ip,
 		Fingerprint: fp,
 		UA:          c.GetHeader("User-Agent"),
-		TokenID:     tid,
 		UserType:    ut,
 		UserID:      userID,
 	})

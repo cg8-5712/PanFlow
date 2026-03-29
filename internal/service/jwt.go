@@ -101,7 +101,7 @@ func (s *JWTService) VerifyUser(tokenStr string) (*UserClaims, error) {
 		return nil, ErrTokenInvalid
 	}
 	claims, ok := token.Claims.(*UserClaims)
-	if !ok {
+	if !ok || claims.UserType == "" {
 		return nil, ErrTokenInvalid
 	}
 	return claims, nil

@@ -88,10 +88,7 @@ func ConfigCacheKey(key string) string {
 	return "config:" + key
 }
 
-// TokenCacheKey returns the cache key for a token
-func TokenCacheKey(token string) string {
-	return "token:" + token
-}
+// TokenID field removed — tokens table no longer used
 
 // UserCacheKey returns the cache key for a user
 func UserCacheKey(id uint) string {

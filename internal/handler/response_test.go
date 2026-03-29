@@ -8,12 +8,14 @@ import (
 	"testing"
 
 	"panflow/internal/handler"
+	"panflow/pkg/logger"
 
 	"github.com/gin-gonic/gin"
 )
 
 func init() {
 	gin.SetMode(gin.TestMode)
+	_ = logger.Init("debug")
 }
 
 // TestResponse_Structure 测试统一响应结构

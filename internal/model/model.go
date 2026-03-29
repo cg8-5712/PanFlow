@@ -9,6 +9,56 @@ import (
 	"gorm.io/gorm"
 )
 
+// LocalTime wraps time.Time to accept both RFC3339 and datetime-local (no timezone) from JSON
+type LocalTime struct{ time.Time }
+
+func (t *LocalTime) UnmarshalJSON(b []byte) error {
+	s := string(b)
+	if s == "null" || s == "\"\"" {
+		return nil
+	}
+	// strip quotes
+	if len(s) >= 2 && s[0] == '"' {
+		s = s[1 : len(s)-1]
+	}
+	for _, layout := range []string{
+		time.RFC3339,
+		"2006-01-02T15:04:05",
+		"2006-01-02 15:04:05",
+	} {
+		if parsed, err := time.ParseInLocation(layout, s, time.Local); err == nil {
+			t.Time = parsed
+			return nil
+		}
+	}
+	return fmt.Errorf("cannot parse time: %q", s)
+}
+
+func (t LocalTime) MarshalJSON() ([]byte, error) {
+	if t.IsZero() {
+		return []byte("null"), nil
+	}
+	return []byte(`"` + t.Format("2006-01-02T15:04:05") + `"`), nil
+}
+
+func (t LocalTime) Value() (driver.Value, error) {
+	if t.IsZero() {
+		return nil, nil
+	}
+	return t.Time, nil
+}
+
+func (t *LocalTime) Scan(value interface{}) error {
+	if value == nil {
+		return nil
+	}
+	switch v := value.(type) {
+	case time.Time:
+		t.Time = v
+	}
+	return nil
+}
+
 // JSONSlice is a []string that serialises to/from JSON in MySQL
 type JSONSlice []string
 
@@ -70,28 +120,6 @@ type Account struct {
 	DeletedAt          gorm.DeletedAt `gorm:"index"                           json:"deleted_at"`
 }
 
-// Token represents an access token with quota
-type Token struct {
-	ID             uint           `gorm:"primaryKey"                   json:"id"`
-	Token          string         `gorm:"column:token;uniqueIndex"     json:"token"`
-	TokenType      string         `gorm:"column:token_type"            json:"token_type"`                      // normal | daily
-	UserType       string         `gorm:"column:user_type;default:guest;index:idx_tokens_user_type" json:"user_type"` // guest | vip | svip | admin
-	ProviderUserID *uint          `gorm:"column:provider_user_id;index:idx_tokens_provider_user" json:"provider_user_id"`
-	Count          int64          `gorm:"column:count;default:0"       json:"count"`
-	Size           int64          `gorm:"column:size;default:0"        json:"size"`
-	Day            int64          `gorm:"column:day;default:0"         json:"day"`
-	UsedCount      int64          `gorm:"column:used_count;default:0"  json:"used_count"`
-	UsedSize       int64          `gorm:"column:used_size;default:0"   json:"used_size"`
-	CanUseIPCount  int64          `gorm:"column:can_use_ip_count"      json:"can_use_ip_count"`
-	IP             JSONSlice      `gorm:"column:ip;type:text"          json:"ip"`
-	Switch         bool           `gorm:"column:switch;default:true"   json:"switch"`
-	Reason         string         `gorm:"column:reason"                json:"reason"`
-	ExpiresAt      *time.Time     `gorm:"column:expires_at"            json:"expires_at"`
-	CreatedAt      time.Time      `                                     json:"created_at"`
-	UpdatedAt      time.Time      `                                     json:"updated_at"`
-	DeletedAt      gorm.DeletedAt `gorm:"index"                        json:"deleted_at"`
-}
-
 // FileList caches Baidu Pan file metadata from share links
 type FileList struct {
 	ID        uint      `gorm:"primaryKey"  json:"id"`
@@ -112,13 +140,11 @@ type Record struct {
 	FsID        uint      `gorm:"column:fs_id"         json:"fs_id"`
 	URLs        JSONSlice `gorm:"column:urls;type:text" json:"urls"`
 	UA          string    `gorm:"column:ua"            json:"ua"`
-	TokenID     uint      `gorm:"column:token_id;index:idx_token" json:"token_id"`
 	AccountID   uint      `gorm:"column:account_id;index:idx_account" json:"account_id"`
 	UserID      *uint     `gorm:"column:user_id;index:idx_user" json:"user_id"`
 	CreatedAt   time.Time `json:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at"`
 	// Preload associations
-	Token   *Token    `gorm:"foreignKey:TokenID"                   json:"token,omitempty"`
 	Account *Account  `gorm:"foreignKey:AccountID"                 json:"account,omitempty"`
 	User    *User     `gorm:"foreignKey:UserID"                    json:"user,omitempty"`
 	File    *FileList `gorm:"foreignKey:FsID;references:ID"        json:"file,omitempty"`
@@ -130,7 +156,7 @@ type BlackList struct {
 	Type       string     `gorm:"column:type"       json:"type"` // ip | fingerprint
 	Identifier string     `gorm:"column:identifier" json:"identifier"`
 	Reason     string     `gorm:"column:reason"     json:"reason"`
-	ExpiresAt  *time.Time `gorm:"column:expires_at" json:"expires_at"`
+	ExpiresAt  *LocalTime `gorm:"column:expires_at" json:"expires_at"`
 	CreatedAt  time.Time  `json:"created_at"`
 	UpdatedAt  time.Time  `json:"updated_at"`
 }
