@@ -59,7 +59,7 @@ type Account struct {
 	Switch             bool           `gorm:"column:switch;default:true"      json:"switch"`
 	Reason             string         `gorm:"column:reason"                   json:"reason"`
 	Prov               *string        `gorm:"column:prov"                     json:"prov"`
-	ProviderUserID     *uint          `gorm:"column:provider_user_id;index:idx_provider_user" json:"provider_user_id"`
+	ProviderUserID     *uint          `gorm:"column:provider_user_id;index:idx_accounts_provider_user" json:"provider_user_id"`
 	UsedCount          int64          `gorm:"column:used_count;default:0"     json:"used_count"`
 	UsedSize           int64          `gorm:"column:used_size;default:0"      json:"used_size"`
 	TotalSize          int64          `gorm:"column:total_size;default:0"     json:"total_size"`
@@ -75,8 +75,8 @@ type Token struct {
 	ID             uint           `gorm:"primaryKey"                   json:"id"`
 	Token          string         `gorm:"column:token;uniqueIndex"     json:"token"`
 	TokenType      string         `gorm:"column:token_type"            json:"token_type"`                      // normal | daily
-	UserType       string         `gorm:"column:user_type;default:guest;index:idx_user_type" json:"user_type"` // guest | vip | svip | admin
-	ProviderUserID *uint          `gorm:"column:provider_user_id;index:idx_provider_user" json:"provider_user_id"`
+	UserType       string         `gorm:"column:user_type;default:guest;index:idx_tokens_user_type" json:"user_type"` // guest | vip | svip | admin
+	ProviderUserID *uint          `gorm:"column:provider_user_id;index:idx_tokens_provider_user" json:"provider_user_id"`
 	Count          int64          `gorm:"column:count;default:0"       json:"count"`
 	Size           int64          `gorm:"column:size;default:0"        json:"size"`
 	Day            int64          `gorm:"column:day;default:0"         json:"day"`
@@ -141,7 +141,7 @@ type User struct {
 	Username       string         `gorm:"column:username;uniqueIndex;not null"      json:"username"`
 	Password       string         `gorm:"column:password"                           json:"-"`
 	Email          string         `gorm:"column:email"                              json:"email"`
-	UserType       string         `gorm:"column:user_type;default:guest;index:idx_user_type" json:"user_type"` // guest | vip | svip | admin
+	UserType       string         `gorm:"column:user_type;default:guest;index:idx_users_user_type" json:"user_type"` // guest | vip | svip | admin
 	VipBalance     int64          `gorm:"column:vip_balance;default:0"              json:"vip_balance"`
 	DailyUsedCount int64          `gorm:"column:daily_used_count;default:0"         json:"daily_used_count"`
 	DailyLimit     int            `gorm:"column:daily_limit;default:5"              json:"daily_limit"`
