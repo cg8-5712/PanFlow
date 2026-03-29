@@ -44,7 +44,7 @@ func Setup(
 	recordH := handler.NewRecordHandler(recordRepo)
 	blackListH := handler.NewBlackListHandler(blackListRepo)
 	parseH := handler.NewParseHandler(parseSvc, configSvc)
-	authH := handler.NewAuthHandler(jwtSvc, tokenSvc, userRepo, cfg.Panflow.AdminPassword, cfg.Panflow.JWTRefreshDays)
+	authH := handler.NewAuthHandler(jwtSvc, userRepo, cfg.Panflow.AdminPassword, cfg.Panflow.JWTRefreshDays)
 
 	r.Use(middleware.Cors())
 

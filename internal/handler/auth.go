@@ -13,7 +13,6 @@ import (
 
 type AuthHandler struct {
 	jwtSvc        *service.JWTService
-	tokenSvc      *service.TokenService
 	userRepo      *repository.UserRepository
 	adminPassword string
 	refreshTTL    time.Duration
@@ -21,14 +20,12 @@ type AuthHandler struct {
 
 func NewAuthHandler(
 	jwtSvc *service.JWTService,
-	tokenSvc *service.TokenService,
 	userRepo *repository.UserRepository,
 	adminPassword string,
 	refreshDays int,
 ) *AuthHandler {
 	return &AuthHandler{
 		jwtSvc:        jwtSvc,
-		tokenSvc:      tokenSvc,
 		userRepo:      userRepo,
 		adminPassword: adminPassword,
 		refreshTTL:    time.Duration(refreshDays) * 24 * time.Hour,
@@ -60,30 +57,17 @@ func (h *AuthHandler) AdminLogin(c *gin.Context) {
 	})
 }
 
-// POST /user/login
-// 支持两种方式：
-//   - token 登录：{"token": "xxx"}
-//   - 账号密码登录：{"username": "xxx", "password": "xxx"}
+// POST /user/login — 账号密码登录
 func (h *AuthHandler) UserLogin(c *gin.Context) {
 	var req struct {
-		Token    string `json:"token"`
-		Username string `json:"username"`
-		Password string `json:"password"`
+		Username string `json:"username" binding:"required"`
+		Password string `json:"password" binding:"required"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		Fail(c, http.StatusBadRequest, 40000, "invalid request")
+		Fail(c, http.StatusBadRequest, 40000, "username and password required")
 		return
 	}
-
-	if req.Username != "" {
-		h.loginWithPassword(c, req.Username, req.Password)
-		return
-	}
-	if req.Token == "" {
-		Fail(c, http.StatusBadRequest, 40000, "token or username+password required")
-		return
-	}
-	h.loginWithToken(c, req.Token)
+	h.loginWithPassword(c, req.Username, req.Password)
 }
 
 // POST /user/refresh
@@ -129,19 +113,6 @@ func (h *AuthHandler) Logout(c *gin.Context) {
 }
 
 // ── internal helpers ──────────────────────────────────────────────────────────
-
-func (h *AuthHandler) loginWithToken(c *gin.Context, tokenStr string) {
-	tok, err := h.tokenSvc.GetByToken(c.Request.Context(), tokenStr)
-	if err != nil {
-		Fail(c, http.StatusUnauthorized, 20003, "token not found or invalid")
-		return
-	}
-	if !tok.Switch {
-		Fail(c, http.StatusForbidden, 20004, "token is disabled")
-		return
-	}
-	h.issueTokenPair(c, tok.ID, tok.UserType, tok.ProviderUserID)
-}
 
 func (h *AuthHandler) loginWithPassword(c *gin.Context, username, password string) {
 	if password == "" {
